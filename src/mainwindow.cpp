@@ -15,6 +15,8 @@
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QFileDialog>
+#include <QRegularExpression>
+#include <QSet>
 
 #include <QApplication>
 #include <QFileDialog>
@@ -176,6 +178,9 @@ void MainWindow::createActions()
     m_terminalAction->setShortcut(QKeySequence("Ctrl+`"));
     m_terminalAction->setStatusTip("Open system terminal in the current directory");
 
+    m_syncBoundariesAction = new QAction("Sync &Boundaries", this);
+    m_syncBoundariesAction->setStatusTip("Sync blockMeshDict boundary names to all 0/ field files boundaryField");
+
     m_aboutAction = new QAction("&About OpenFOAM GUI", this);
     m_aboutAction->setStatusTip("About this application");
 
@@ -232,6 +237,7 @@ void MainWindow::createMenus()
     m_caseMenu->addAction(m_newFolderAction);
     m_caseMenu->addAction(m_deleteAction);
     m_caseMenu->addAction(m_cleanTimeAction);
+    m_caseMenu->addAction(m_syncBoundariesAction);
     m_caseMenu->addAction(m_paraviewAction);
     m_caseMenu->addAction(m_paraviewConfigAction);
     m_caseMenu->addSeparator();
@@ -375,6 +381,7 @@ void MainWindow::setupConnections()
     connect(m_newFolderAction, &QAction::triggered, this, &MainWindow::onNewFolder);
     connect(m_deleteAction, &QAction::triggered, this, &MainWindow::onDeleteSelected);
     connect(m_cleanTimeAction, &QAction::triggered, this, &MainWindow::onCleanTimeDirs);
+    connect(m_syncBoundariesAction, &QAction::triggered, this, &MainWindow::onSyncBoundaries);
     connect(m_paraviewAction, &QAction::triggered, this, &MainWindow::onParaView);
     connect(m_paraviewConfigAction, &QAction::triggered, this, &MainWindow::onConfigureParaView);
     connect(m_refreshAction, &QAction::triggered, this, &MainWindow::onRefreshCase);
@@ -914,6 +921,224 @@ void MainWindow::onCleanTimeDirs()
 
     m_caseBrowser->refresh();
     statusBar()->showMessage(QString("Deleted %1 time directories.").arg(deleted), 5000);
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Sync blockMeshDict boundary names → 0/ field files boundaryField
+// ────────────────────────────────────────────────────────────────────
+
+void MainWindow::onSyncBoundaries()
+{
+    QStringList cases = m_caseBrowser->casePaths();
+    if (cases.isEmpty()) {
+        statusBar()->showMessage("No case opened. Open a case first.", 4000);
+        return;
+    }
+
+    int totalUpdated = 0;
+    for (const auto &casePath : cases)
+        syncBoundariesForCase(casePath);
+
+    m_caseBrowser->refresh();
+    statusBar()->showMessage(
+        QString("Boundary sync complete. %1 file(s) updated across %2 case(s).")
+            .arg(totalUpdated).arg(cases.size()), 5000);
+}
+
+void MainWindow::syncBoundariesForCase(const QString &casePath)
+{
+    // ── 1. Find blockMeshDict ──
+    QString bmdPath;
+    QStringList bmdCandidates = {
+        QDir(casePath).filePath("system/blockMeshDict"),
+        QDir(casePath).filePath("constant/polyMesh/blockMeshDict"),
+    };
+    for (const auto &c : bmdCandidates) {
+        if (QFileInfo::exists(c)) { bmdPath = c; break; }
+    }
+    if (bmdPath.isEmpty()) {
+        statusBar()->showMessage(
+            "blockMeshDict not found in system/ or constant/polyMesh/.", 4000);
+        return;
+    }
+
+    // ── 2. Parse boundary names from blockMeshDict ──
+    QFile bmdFile(bmdPath);
+    if (!bmdFile.open(QFile::ReadOnly | QFile::Text)) return;
+    QString bmdContent = QString::fromUtf8(bmdFile.readAll());
+    bmdFile.close();
+
+    // Extract the "boundary" block: boundary ( ... );
+    QRegularExpression bndRe(
+        R"(boundary\s*\((.*?)\n\s*\)\s*;)",
+        QRegularExpression::DotMatchesEverythingOption);
+    auto bndMatch = bndRe.match(bmdContent);
+    if (!bndMatch.hasMatch()) {
+        statusBar()->showMessage("No 'boundary' block found in blockMeshDict.", 4000);
+        return;
+    }
+
+    // Parse each patch: patchName { ... }
+    struct PatchInfo { QString name; QString type; };
+    QVector<PatchInfo> patches;
+    QRegularExpression patchRe(
+        R"((\w+)\s*\{(.*?)\n\s*\})",
+        QRegularExpression::DotMatchesEverythingOption);
+    auto it = patchRe.globalMatch(bndMatch.captured(1));
+    while (it.hasNext()) {
+        auto pm = it.next();
+        PatchInfo pi;
+        pi.name = pm.captured(1);
+        QRegularExpression typeRe(R"(type\s+(\S+)\s*;)");
+        auto tm = typeRe.match(pm.captured(2));
+        pi.type = tm.hasMatch() ? tm.captured(1) : "patch";
+        patches.append(pi);
+    }
+
+    if (patches.isEmpty()) {
+        statusBar()->showMessage("No patches found in blockMeshDict boundary.", 4000);
+        return;
+    }
+
+    // ── 3. Find the first time directory (0/ or 0.orig/) ──
+    QString timeDir;
+    QDir caseDir(casePath);
+    auto entries = caseDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    for (const auto &e : entries) {
+        if (e == "0" || e == "0.orig" || e.startsWith("0.")) {
+            timeDir = caseDir.filePath(e);
+            break;
+        }
+    }
+    if (timeDir.isEmpty()) {
+        statusBar()->showMessage("No 0/ or 0.orig/ time directory found.", 4000);
+        return;
+    }
+
+    // ── 4. For each field file in the time directory, sync boundaryField ──
+    QDir td(timeDir);
+    auto fieldFiles = td.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
+    int updatedCount = 0;
+
+    for (const auto &fi : fieldFiles) {
+        // Skip non-field files
+        QString fn = fi.fileName();
+        if (fn == "uniform" || fn.endsWith(".foam") || fn.endsWith(".orig"))
+            continue;
+
+        QFile fieldFile(fi.absoluteFilePath());
+        if (!fieldFile.open(QFile::ReadOnly | QFile::Text)) continue;
+        QString content = QString::fromUtf8(fieldFile.readAll());
+        fieldFile.close();
+
+        // Detect field type from FoamFile header
+        QString foamClass;
+        QRegularExpression classRe(R"(class\s+(\S+)\s*;)");
+        auto cm = classRe.match(content);
+        if (cm.hasMatch()) foamClass = cm.captured(1);
+
+        // Parse existing boundaryField entries
+        QRegularExpression bfRe(
+            R"(boundaryField\s*\{(.*)\n\s*\})",
+            QRegularExpression::DotMatchesEverythingOption);
+        auto bfMatch = bfRe.match(content);
+        if (!bfMatch.hasMatch()) continue;
+
+        QString bfContent = bfMatch.captured(1);
+
+        // Collect existing patch names in boundaryField
+        QSet<QString> existingPatches;
+        QRegularExpression existRe(R"((\w+)\s*\{)");
+        auto eit = existRe.globalMatch(bfContent);
+        while (eit.hasNext()) {
+            auto em = eit.next();
+            existingPatches.insert(em.captured(1));
+        }
+
+        // Build default BC snippet for each missing patch
+        QStringList newEntries;
+        for (const auto &p : patches) {
+            if (existingPatches.contains(p.name)) continue; // already present
+
+            QString bcType;
+            if (p.type == "empty") {
+                bcType = "empty";
+            } else if (p.type == "symmetry" || p.type == "symmetryPlane") {
+                bcType = "symmetry";
+            } else if (p.type == "wedge") {
+                bcType = "wedge";
+            } else if (p.type == "cyclic" || p.type == "cyclicAMI") {
+                bcType = "cyclic";
+            } else if (p.type == "wall") {
+                // Wall: choose based on field name
+                QString fnLower = fn.toLower();
+                if (fnLower == "u" || fnLower == "v")
+                    bcType = "noSlip";
+                else if (fnLower == "p" || fnLower == "p_rgh")
+                    bcType = "fixedFluxPressure";
+                else if (fnLower == "k")
+                    bcType = "kqRWallFunction";
+                else if (fnLower == "epsilon")
+                    bcType = "epsilonWallFunction";
+                else if (fnLower == "omega")
+                    bcType = "omegaWallFunction";
+                else if (fnLower == "nut" || fnLower == "alphat")
+                    bcType = "nutkWallFunction";
+                else if (fnLower == "t" || foamClass.contains("Scalar"))
+                    bcType = "zeroGradient";
+                else
+                    bcType = "zeroGradient";
+            } else {
+                // patch, inlet, outlet, etc.
+                QString fnLower = fn.toLower();
+                if (fnLower == "u" || fnLower == "v")
+                    bcType = "zeroGradient";
+                else
+                    bcType = "zeroGradient";
+            }
+
+            QString entry = QString(
+                "\n        %1\n        {\n"
+                "            type            %2;\n"
+                "        }\n").arg(p.name, bcType);
+
+            // Add a default value for fixedValue-like types
+            if (bcType == "noSlip" || bcType == "slip" || bcType == "calculated"
+                || bcType == "empty" || bcType == "symmetry" || bcType == "wedge"
+                || bcType == "cyclic" || bcType == "zeroGradient") {
+                entry = QString(
+                    "        %1\n        {\n"
+                    "            type            %2;\n"
+                    "        }\n").arg(p.name, bcType);
+            }
+            newEntries.append(entry);
+        }
+
+        if (newEntries.isEmpty()) continue; // all patches already present
+
+        // Insert new entries at the end of boundaryField (before the closing })
+        int insertPos = bfMatch.capturedStart(1) + bfMatch.capturedLength(1);
+        QString insertion = newEntries.join("");
+        content = content.left(insertPos) + insertion + content.mid(insertPos);
+
+        // Write back
+        if (fieldFile.open(QFile::WriteOnly | QFile::Text | QFile::Truncate)) {
+            QTextStream out(&fieldFile);
+            out << content;
+            fieldFile.close();
+            updatedCount++;
+        }
+    }
+
+    if (updatedCount > 0) {
+        statusBar()->showMessage(
+            QString("Synced %1 field file(s) in %2 with %3 boundary patch(es).")
+                .arg(updatedCount)
+                .arg(QDir(timeDir).dirName())
+                .arg(patches.size()), 5000);
+    } else {
+        statusBar()->showMessage("All field files are already in sync.", 3000);
+    }
 }
 
 void MainWindow::onParaView()

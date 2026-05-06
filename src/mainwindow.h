@@ -54,6 +54,7 @@ private slots:
     void onRefreshCase();
     void onOpenTerminal();
     void onCloseCase();
+    void onSyncBoundaries();
 
 private:
     void createActions();
@@ -74,6 +75,7 @@ private:
     void updateWindowTitle();
     void updateStatusBarForEditor(CodeEditor *editor);
     bool saveEditor(CodeEditor *editor);
+    void syncBoundariesForCase(const QString &casePath);
 
     // Main widgets
     CaseBrowser      *m_caseBrowser;
@@ -126,6 +128,7 @@ private:
     QAction *m_refreshAction;
     QAction *m_bcPanelAction;
     QAction *m_terminalAction;
+    QAction *m_syncBoundariesAction;
     QAction *m_aboutAction;
     QAction *m_recentCaseActions[10];
 
