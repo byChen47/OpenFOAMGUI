@@ -412,15 +412,15 @@ RC_ICONS   = src/bychen.ico
 
 ### Command-Line Build (Windows)
 
-Open a terminal (Git Bash, MSYS2, or Command Prompt) and set up the environment:
+Open a terminal (Git Bash, MSYS2, or Command Prompt) and set up the environment(you need to modify the command path):
 
 ```bash
 # Add Qt and MinGW to PATH
-export PATH="D:/3.Wpsandother/Qt/setting/6.10.2/mingw_64/bin:$PATH"
-export PATH="D:/3.Wpsandother/mingw64/bin:$PATH"
+export PATH="****/Qt/6.10.2/mingw_64/bin:$PATH"
+export PATH="***&/mingw64/bin:$PATH"
 
 # Navigate to the project directory
-cd d:/3.OpenFOAM/0.OpenFOAM/OpenFOAMGUI
+cd d:**********/OpenFOAMGUI
 
 # Step 1: Generate Makefile from .pro
 qmake OpenFOAMGUI.pro
