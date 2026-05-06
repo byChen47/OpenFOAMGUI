@@ -364,14 +364,118 @@ ParaView is a free, open-source, multi-platform data analysis and visualization 
 
 ## Build
 
-```bash
-qmake OpenFOAMGUI.pro
-mingw32-make -f Makefile.Release
+### Prerequisites
+
+Ensure the following tools are installed and available:
+
+| Tool | Required Version | Typical Path (Windows) |
+|------|-----------------|------------------------|
+| **Qt** | 6.10.2 (MinGW 64-bit) | `D:/3.Wpsandother/Qt/setting/6.10.2/mingw_64/` |
+| **MinGW-w64** | GCC 15.2.0+ | `D:/3.Wpsandother/mingw64/` |
+| **Git** | 2.x (for version control) | `D:/3.Wpsandother/gitForWindow/setting/Git/` |
+
+### Build Configuration (OpenFOAMGUI.pro)
+
+```pro
+QT       += core gui widgets
+CONFIG   += c++17 console
+
+# Windows: GUI application (no console window), MinGW linker flags
+mingw {
+    QMAKE_LFLAGS_CONSOLE = -Wl,-subsystem,windows -mthreads
+}
+
+TARGET   = OpenFOAMGUI
+TEMPLATE = app
+
+SOURCES  += src/main.cpp src/mainwindow.cpp src/casebrowser.cpp \
+            src/codeeditor.cpp src/ofhighlighter.cpp src/ofparser.cpp \
+            src/linenumberarea.cpp src/languagedetector.cpp \
+            src/bctypedatabase.cpp src/bcpanel.cpp \
+            src/turbulencemodeldatabase.cpp src/turbulencepanel.cpp \
+            src/schemespanel.cpp src/snappypanel.cpp src/dictpanel.cpp
+
+HEADERS  += src/mainwindow.h src/casebrowser.h src/codeeditor.h \
+            src/ofhighlighter.h src/ofparser.h src/linenumberarea.h \
+            src/languagedetector.h src/bctypedatabase.h src/bcpanel.h \
+            src/turbulencemodeldatabase.h src/turbulencepanel.h \
+            src/schemespanel.h src/snappypanel.h src/dictpanel.h
+
+RESOURCES += resources.qrc
+RC_ICONS   = src/bychen.ico
 ```
 
-Or open `OpenFOAMGUI.pro` in Qt Creator and build with the MinGW 64-bit kit.
+- **C++17** standard with GNU extensions (`-std=gnu++1z`)
+- **Qt modules**: Core, GUI, Widgets
+- **Linker**: `-Wl,-subsystem,windows` suppresses the console window on Windows
+- **Resources**: `resources.qrc` embeds the application icon; `RC_ICONS` sets the Windows `.exe` icon
 
-The output executable is `release/OpenFOAMGUI.exe`.
+### Command-Line Build (Windows)
+
+Open a terminal (Git Bash, MSYS2, or Command Prompt) and set up the environment:
+
+```bash
+# Add Qt and MinGW to PATH
+export PATH="D:/3.Wpsandother/Qt/setting/6.10.2/mingw_64/bin:$PATH"
+export PATH="D:/3.Wpsandother/mingw64/bin:$PATH"
+
+# Navigate to the project directory
+cd d:/3.OpenFOAM/0.OpenFOAM/OpenFOAMGUI
+
+# Step 1: Generate Makefile from .pro
+qmake OpenFOAMGUI.pro
+
+# Step 2: Build (Release configuration)
+mingw32-make -f Makefile.Release
+
+# Output: release/OpenFOAMGUI.exe
+```
+
+**Build targets:**
+
+| Command | Description |
+|---------|-------------|
+| `mingw32-make -f Makefile.Release` | Release build (optimized, `-O2`) |
+| `mingw32-make -f Makefile.Debug` | Debug build (with symbols, `-g`) |
+| `mingw32-make -f Makefile.Release clean` | Clean release build artifacts |
+| `mingw32-make -f Makefile.Release distclean` | Remove all generated files |
+
+**Compiler flags (Release):**
+```
+-O2 -std=gnu++1z -Wall -Wextra -fexceptions -mthreads
+-DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1
+```
+
+**Linker flags (Release):**
+```
+-Wl,-s -Wl,-subsystem,windows -mthreads
+```
+
+**Linked libraries:**
+```
+libQt6Widgets.a  libQt6Gui.a  libQt6Core.a
+```
+
+### Qt Creator Build
+
+1. Open **Qt Creator**
+2. **File → Open File or Project...** → select `OpenFOAMGUI.pro`
+3. When prompted, select the **MinGW 64-bit** kit (Qt 6.10.2)
+4. Choose **Release** build configuration
+5. Click **Build → Build Project** (or `Ctrl+B`)
+6. The executable is output to `release/OpenFOAMGUI.exe`
+
+### Linux / macOS Build
+
+```bash
+# Ensure Qt 6.10+ and GCC/Clang are installed
+qmake6 OpenFOAMGUI.pro     # or qmake (depending on your distro)
+make -f Makefile.Release
+
+# Output: release/OpenFOAMGUI
+```
+
+> **Note**: The `RC_ICONS` and Windows-specific linker flags are ignored on non-Windows platforms via the `mingw { }` conditional block.
 
 ## Usage
 
