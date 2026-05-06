@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="bychen.ico">src/bychen.ico</file>
+    </qresource>
+</RCC>

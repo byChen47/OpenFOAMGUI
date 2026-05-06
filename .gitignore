@@ -1,0 +1,29 @@
+# Build outputs
+release/
+debug/
+*.o
+*.obj
+*.exe
+
+# Qt generated files
+moc_*.cpp
+qrc_*.cpp
+moc_predefs.h
+Makefile
+Makefile.Debug
+Makefile.Release
+.qmake.stash
+
+# Qt Creator
+.qtcreator/
+*.pro.user
+
+# IDE
+.vscode/
+.idea/
+
+# Packaging
+packaging/
+
+# Node
+node_modules/
