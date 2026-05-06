@@ -937,7 +937,7 @@ void MainWindow::onSyncBoundaries()
 
     int totalUpdated = 0;
     for (const auto &casePath : cases)
-        syncBoundariesForCase(casePath);
+        totalUpdated += syncBoundariesForCase(casePath);
 
     m_caseBrowser->refresh();
     statusBar()->showMessage(
@@ -945,7 +945,7 @@ void MainWindow::onSyncBoundaries()
             .arg(totalUpdated).arg(cases.size()), 5000);
 }
 
-void MainWindow::syncBoundariesForCase(const QString &casePath)
+int MainWindow::syncBoundariesForCase(const QString &casePath)
 {
     // ── 1. Find blockMeshDict ──
     QString bmdPath;
@@ -959,24 +959,41 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
     if (bmdPath.isEmpty()) {
         statusBar()->showMessage(
             "blockMeshDict not found in system/ or constant/polyMesh/.", 4000);
-        return;
+        return 0;
     }
 
     // ── 2. Parse boundary names from blockMeshDict ──
     QFile bmdFile(bmdPath);
-    if (!bmdFile.open(QFile::ReadOnly | QFile::Text)) return;
+    if (!bmdFile.open(QFile::ReadOnly | QFile::Text)) return 0;
     QString bmdContent = QString::fromUtf8(bmdFile.readAll());
     bmdFile.close();
 
     // Extract the "boundary" block: boundary ( ... );
     QRegularExpression bndRe(
-        R"(boundary\s*\((.*?)\n\s*\)\s*;)",
+        R"(boundary\s*\()",
         QRegularExpression::DotMatchesEverythingOption);
-    auto bndMatch = bndRe.match(bmdContent);
-    if (!bndMatch.hasMatch()) {
+    auto bndStart = bndRe.match(bmdContent);
+    if (!bndStart.hasMatch()) {
         statusBar()->showMessage("No 'boundary' block found in blockMeshDict.", 4000);
-        return;
+        return 0;
     }
+
+    // Find matching closing ) by counting nesting depth
+    int startPos = bndStart.capturedEnd();
+    int depth = 1;
+    int endPos = -1;
+    for (int i = startPos; i < bmdContent.size(); ++i) {
+        if (bmdContent[i] == '(') depth++;
+        else if (bmdContent[i] == ')') {
+            depth--;
+            if (depth == 0) { endPos = i; break; }
+        }
+    }
+    if (endPos < 0) {
+        statusBar()->showMessage("Could not parse boundary block in blockMeshDict.", 4000);
+        return 0;
+    }
+    QString bndBody = bmdContent.mid(startPos, endPos - startPos);
 
     // Parse each patch: patchName { ... }
     struct PatchInfo { QString name; QString type; };
@@ -984,7 +1001,7 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
     QRegularExpression patchRe(
         R"((\w+)\s*\{(.*?)\n\s*\})",
         QRegularExpression::DotMatchesEverythingOption);
-    auto it = patchRe.globalMatch(bndMatch.captured(1));
+    auto it = patchRe.globalMatch(bndBody);
     while (it.hasNext()) {
         auto pm = it.next();
         PatchInfo pi;
@@ -997,7 +1014,7 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
 
     if (patches.isEmpty()) {
         statusBar()->showMessage("No patches found in blockMeshDict boundary.", 4000);
-        return;
+        return 0;
     }
 
     // ── 3. Find the first time directory (0/ or 0.orig/) ──
@@ -1012,7 +1029,7 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
     }
     if (timeDir.isEmpty()) {
         statusBar()->showMessage("No 0/ or 0.orig/ time directory found.", 4000);
-        return;
+        return 0;
     }
 
     // ── 4. For each field file in the time directory, sync boundaryField ──
@@ -1021,8 +1038,8 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
     int updatedCount = 0;
 
     for (const auto &fi : fieldFiles) {
-        // Skip non-field files
         QString fn = fi.fileName();
+        // Skip non-field files
         if (fn == "uniform" || fn.endsWith(".foam") || fn.endsWith(".orig"))
             continue;
 
@@ -1037,18 +1054,30 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
         auto cm = classRe.match(content);
         if (cm.hasMatch()) foamClass = cm.captured(1);
 
-        // Parse existing boundaryField entries
-        QRegularExpression bfRe(
-            R"(boundaryField\s*\{(.*)\n\s*\})",
-            QRegularExpression::DotMatchesEverythingOption);
-        auto bfMatch = bfRe.match(content);
-        if (!bfMatch.hasMatch()) continue;
+        // Parse boundaryField: find { and matching } by depth
+        QRegularExpression bfStartRe(
+            R"(boundaryField\s*\{)");
+        auto bfStart = bfStartRe.match(content);
+        if (!bfStart.hasMatch()) continue;
 
-        QString bfContent = bfMatch.captured(1);
+        int bfOpenPos = bfStart.capturedEnd() - 1; // position of {
+        int bfDepth = 1;
+        int bfClosePos = -1;
+        for (int i = bfOpenPos + 1; i < content.size(); ++i) {
+            if (content[i] == '{') bfDepth++;
+            else if (content[i] == '}') {
+                bfDepth--;
+                if (bfDepth == 0) { bfClosePos = i; break; }
+            }
+        }
+        if (bfClosePos < 0) continue;
+
+        // Content between { and }
+        QString bfContent = content.mid(bfOpenPos + 1, bfClosePos - bfOpenPos - 1);
 
         // Collect existing patch names in boundaryField
         QSet<QString> existingPatches;
-        QRegularExpression existRe(R"((\w+)\s*\{)");
+        QRegularExpression existRe(R"((\w+)\s*\{(?!\s*\|))");
         auto eit = existRe.globalMatch(bfContent);
         while (eit.hasNext()) {
             auto em = eit.next();
@@ -1070,7 +1099,6 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
             } else if (p.type == "cyclic" || p.type == "cyclicAMI") {
                 bcType = "cyclic";
             } else if (p.type == "wall") {
-                // Wall: choose based on field name
                 QString fnLower = fn.toLower();
                 if (fnLower == "u" || fnLower == "v")
                     bcType = "noSlip";
@@ -1089,37 +1117,21 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
                 else
                     bcType = "zeroGradient";
             } else {
-                // patch, inlet, outlet, etc.
-                QString fnLower = fn.toLower();
-                if (fnLower == "u" || fnLower == "v")
-                    bcType = "zeroGradient";
-                else
-                    bcType = "zeroGradient";
+                bcType = "zeroGradient";
             }
 
             QString entry = QString(
-                "\n        %1\n        {\n"
+                "        %1\n        {\n"
                 "            type            %2;\n"
                 "        }\n").arg(p.name, bcType);
-
-            // Add a default value for fixedValue-like types
-            if (bcType == "noSlip" || bcType == "slip" || bcType == "calculated"
-                || bcType == "empty" || bcType == "symmetry" || bcType == "wedge"
-                || bcType == "cyclic" || bcType == "zeroGradient") {
-                entry = QString(
-                    "        %1\n        {\n"
-                    "            type            %2;\n"
-                    "        }\n").arg(p.name, bcType);
-            }
             newEntries.append(entry);
         }
 
         if (newEntries.isEmpty()) continue; // all patches already present
 
-        // Insert new entries at the end of boundaryField (before the closing })
-        int insertPos = bfMatch.capturedStart(1) + bfMatch.capturedLength(1);
+        // Insert new entries right before the closing }
         QString insertion = newEntries.join("");
-        content = content.left(insertPos) + insertion + content.mid(insertPos);
+        content = content.left(bfClosePos) + insertion + content.mid(bfClosePos);
 
         // Write back
         if (fieldFile.open(QFile::WriteOnly | QFile::Text | QFile::Truncate)) {
@@ -1132,13 +1144,14 @@ void MainWindow::syncBoundariesForCase(const QString &casePath)
 
     if (updatedCount > 0) {
         statusBar()->showMessage(
-            QString("Synced %1 field file(s) in %2 with %3 boundary patch(es).")
+            QString("Synced %1 field file(s) in %2 — added %3 missing patch(es).")
                 .arg(updatedCount)
                 .arg(QDir(timeDir).dirName())
                 .arg(patches.size()), 5000);
     } else {
         statusBar()->showMessage("All field files are already in sync.", 3000);
     }
+    return updatedCount;
 }
 
 void MainWindow::onParaView()
