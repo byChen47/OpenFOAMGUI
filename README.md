@@ -302,6 +302,59 @@ Configures various OpenFOAM dictionaries with pre-defined parameter sets.
 
 ---
 
+## ParaView Integration
+
+Launch ParaView directly from the GUI for post-processing without manually creating `.foam` files or opening a terminal.
+
+### How It Works
+
+1. **Case → ParaView** (or the ParaView toolbar button) launches ParaView with the current OpenFOAM case
+2. A `.foam` dummy file is automatically created in the case root directory (required by ParaView's native OpenFOAM reader)
+3. ParaView opens with `--data=<caseName>.foam`, ready for post-processing
+
+### ParaView Path Configuration
+
+The application searches for ParaView in the following order:
+
+**On Windows:**
+```
+1. User-configured path (set via Case → ParaView Path...)
+2. paraview.exe (in system PATH)
+3. C:/Program Files/ParaView 5.13/bin/paraview.exe
+4. C:/Program Files/ParaView 5.12/bin/paraview.exe
+5. C:/Program Files/ParaView 5.11/bin/paraview.exe
+6. C:/Program Files/ParaView 5.10/bin/paraview.exe
+7. C:/Program Files/ParaView/bin/paraview.exe
+```
+
+**On Linux:**
+```
+1. User-configured path
+2. paraview (in system PATH)
+3. /usr/bin/paraview
+4. /usr/local/bin/paraview
+```
+
+If ParaView is not found, a dialog prompts you to browse for the executable. You can also manually configure the path anytime:
+
+- **Case → ParaView Path...** — opens a file browser to select the ParaView executable
+- The configured path is persisted across sessions (stored in `QSettings`)
+
+### Download ParaView
+
+ParaView is a free, open-source, multi-platform data analysis and visualization application.
+
+| Platform | Download |
+|----------|----------|
+| **Windows** | [ParaView 5.13.2 Windows (64-bit)](https://www.paraview.org/download/) |
+| **Linux** | [ParaView 5.13.2 Linux (64-bit)](https://www.paraview.org/download/) |
+| **macOS** | [ParaView 5.13.2 macOS](https://www.paraview.org/download/) |
+| **All versions** | [https://www.paraview.org/download/](https://www.paraview.org/download/) |
+
+> **Recommended**: Install ParaView 5.10 or later for best compatibility with OpenFOAM native reader. During installation on Windows, the default path `C:/Program Files/ParaView <version>/` will be auto-detected by the GUI.
+
+---
+
 ## Requirements
 
 - **Qt 6.10.2** (MinGW 64-bit)
