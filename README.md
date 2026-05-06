@@ -14,6 +14,7 @@ Open, browse, edit, and save OpenFOAM case files with syntax highlighting, case 
 - [Discretisation & Solvers Panel](#discretisation--solvers-panel)
 - [snappyHexMesh Panel](#snappyhexmesh-panel)
 - [General Dict Panel](#general-dict-panel)
+- [Sync Boundaries](#sync-boundaries)
 - [Editor & Case Browser](#editor--case-browser)
 - [Requirements](#requirements)
 - [Build](#build)
@@ -273,6 +274,63 @@ Configures various OpenFOAM dictionaries with pre-defined parameter sets.
 - Parameter table with type, default, and description
 - Editable values
 - **Apply to Editor** writes the formatted dictionary
+
+---
+
+## Sync Boundaries
+
+`Case → Sync Boundaries` one-click synchronises boundary patch names from `system/blockMeshDict` to every field file in the `0/` (or `0.orig/`) time directory.
+
+### Purpose
+
+After modifying the mesh in `blockMeshDict` — adding, removing, or renaming boundary patches — the `boundaryField` section in each field file (U, p, k, epsilon, etc.) must contain a matching entry for every patch. Manually updating all field files is tedious and error-prone. This feature automates it.
+
+### How It Works
+
+1. Locates `blockMeshDict` in `system/` (or `constant/polyMesh/`)
+2. Parses the `boundary (...)` block using **nesting-depth counting** (not regex), correctly handling nested braces in face lists
+3. Extracts every patch name and its type (`patch`, `wall`, `empty`, `symmetry`, etc.)
+4. Finds the first time directory (`0/`, `0.orig/`, or `0.xxx/`)
+5. For each field file in that directory:
+   - Parses the `boundaryField { ... }` block (also via depth counting)
+   - Identifies which patches from blockMeshDict are **missing** from the field file
+   - Appends the missing patches with a sensible default boundary condition
+
+### Default BC Assignment
+
+Missing patches are assigned default boundary conditions based on the **patch type** from blockMeshDict and the **field name**:
+
+| Patch Type | Field | Default BC |
+|-----------|-------|-------------|
+| `wall` | U, v | `noSlip` |
+| `wall` | p, p_rgh | `fixedFluxPressure` |
+| `wall` | k | `kqRWallFunction` |
+| `wall` | epsilon | `epsilonWallFunction` |
+| `wall` | omega | `omegaWallFunction` |
+| `wall` | nut, alphat | `nutkWallFunction` |
+| `wall` | T, other scalars | `zeroGradient` |
+| `empty` | any | `empty` |
+| `symmetry` / `symmetryPlane` | any | `symmetry` |
+| `wedge` | any | `wedge` |
+| `cyclic` / `cyclicAMI` | any | `cyclic` |
+| `patch` | U, v | `zeroGradient` |
+| `patch` | other | `zeroGradient` |
+
+### What It Does NOT Do
+
+- **Does not remove** existing boundary entries — only appends missing ones
+- **Does not modify** the BC type of existing patches — preserves user configuration
+- **Does not touch** files outside the first time directory
+
+### Status Feedback
+
+After execution, the status bar shows a summary:
+
+> `Synced 5 field file(s) in 0 — added 4 missing patch(es).`
+
+or
+
+> `All field files are already in sync.`
 
 ---
 
