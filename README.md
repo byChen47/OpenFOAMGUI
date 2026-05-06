@@ -370,9 +370,9 @@ Ensure the following tools are installed and available:
 
 | Tool | Required Version | Typical Path (Windows) |
 |------|-----------------|------------------------|
-| **Qt** | 6.10.2 (MinGW 64-bit) | `D:/3.Wpsandother/Qt/setting/6.10.2/mingw_64/` |
-| **MinGW-w64** | GCC 15.2.0+ | `D:/3.Wpsandother/mingw64/` |
-| **Git** | 2.x (for version control) | `D:/3.Wpsandother/gitForWindow/setting/Git/` |
+| **Qt** | 6.10.2 (MinGW 64-bit) | `D:/*****/Qt/*****/6.10.2/mingw_64/` |
+| **MinGW-w64** | GCC 15.2.0+ | `D:/*****/mingw64/` |
+| **Git** | 2.x (for version control) | `D:/*****r/gitForWindow/*****/Git/` |
 
 ### Build Configuration (OpenFOAMGUI.pro)
 
