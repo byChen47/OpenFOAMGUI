@@ -39,6 +39,8 @@ Open, browse, edit, and save OpenFOAM case files with syntax highlighting, case 
 | **Discretisation & Solvers Panel** | Structured editing of `fvSchemes` and `fvSolution` |
 | **snappyHexMesh Panel** | Full snappyHexMeshDict configuration with section navigation |
 | **General Dict Panel** | Edit blockMeshDict, controlDict, decomposeParDict, topoSetDict, etc. |
+| **Sync Boundaries** | One-click sync blockMeshDict patches to all 0/ field files |
+| **File Viewer** | Native viewing for PNG/JPG/SVG/EPS images with zoom; PDF/Office via system default |
 | **ParaView Integration** | One-click launch ParaView from the Case menu |
 | **Terminal** | Open system terminal in the case directory |
 | **Recent Cases** | Quick access to recently opened cases (up to 10) |
@@ -338,29 +340,40 @@ or
 
 ## File Viewer
 
-The application supports viewing multiple file formats directly in tabs, without relying on external programs for common formats.
+The application supports viewing multiple file formats directly in tabs.
 
 ### Supported Formats
 
 | Category | Extensions | Viewer |
 |----------|-----------|--------|
-| **Raster Images** | PNG, JPG, JPEG, BMP, GIF, WebP, ICO | Scrollable native viewer via QPixmap |
-| **Vector Images** | SVG | QSvgWidget vector renderer |
-| **EPS / PostScript** | EPS, EPSF, PS | Ghostscript → PNG (auto-detect GS); QPixmap fallback |
-| **PDF Documents** | PDF | Info card with manual open button |
-| **Office Documents** | DOC, DOCX, XLS, XLSX, PPT, PPTX | Info card with manual open button |
+| **Raster Images** | PNG, JPG, JPEG, BMP, GIF, WebP, ICO | Scrollable native viewer with zoom controls (− / + / Fit / 1:1) |
+| **Vector — SVG** | SVG | QSvgWidget vector renderer |
+| **Vector — EPS** | EPS, EPSF, PS | Ghostscript → PNG (auto-detect GS from PATH, TeX Live, or bundled); QPixmap fallback |
+| **PDF Documents** | PDF | Opens with system default PDF viewer |
+| **Office Documents** | DOC, DOCX, XLS, XLSX, PPT, PPTX | Opens with system default application |
+
+### Image Zoom Controls
+
+Every image viewer tab includes a zoom toolbar:
+
+| Button | Action |
+|--------|--------|
+| **−** | Zoom out (÷1.25×) |
+| **+** | Zoom in (×1.25) |
+| **Fit** | Fit image to window (auto on first load) |
+| **1:1** | Reset to original pixel size |
 
 ### EPS Rendering
 
 EPS files are rendered in-app using a three-tier pipeline:
 
 1. **QPixmap** — Qt may load EPS through an image format plugin
-2. **Ghostscript** — automatically detected at common install paths; converts to temporary PNG
-3. **Error message** — if no renderer is available, a status bar message suggests installing Ghostscript
+2. **Ghostscript** — automatically detected at common install paths, TeX Live directories, or bundled with the app; converts EPS to temporary PNG
+3. **Error message** — if no renderer is available, the status bar prompts to install Ghostscript
 
 ### Open With...
 
-Right-click any file in the **Case Browser** and choose **Open With...** to launch the file with an external program of your choice.
+Right-click any file in the **Case Browser** and choose **Open With...** to select an external program for that file.
 
 ---
 
@@ -370,7 +383,8 @@ Right-click any file in the **Case Browser** and choose **Open With...** to laun
 
 - **Syntax Highlighting** — OpenFOAM keywords, C++ keywords, scalars, vectors, tensors, macros (`#include`, `#ifdef`), FoamFile headers, units/dimensions
 - **Line Numbers** — with current-line highlighting
-- **Multi-tab** — Ctrl+W closes a single file; Ctrl+Tab switches between files
+- **Multi-tab** — `Ctrl+W` closes current tab; `Ctrl+Tab` switches tabs
+- **Tab Context Menu** — right-click any tab for Close Current / Close Others / Close All
 - **Unsaved Changes** — `*` indicator in tab title and confirmation on close
 - **Comment/Uncomment** — `Ctrl+/` toggles `//` or `#` based on file language
 - **Find** — `Ctrl+F` with text search
@@ -384,7 +398,7 @@ Right-click any file in the **Case Browser** and choose **Open With...** to laun
 - Tooltips with file descriptions
 - **Filter** box for quick file search
 - **Right-click context menu**:
-  - Open File / Close Case / Refresh Case
+  - Open File / **Open With...** (choose external program) / Close Case / Refresh Case
   - New File / New Folder / Delete
 - **Multi-case support** — open and manage multiple cases simultaneously
 
@@ -465,10 +479,9 @@ Ensure the following tools are installed and available:
 ### Build Configuration (OpenFOAMGUI.pro)
 
 ```pro
-QT       += core gui widgets
+QT       += core gui widgets svgwidgets
 CONFIG   += c++17 console
 
-# Windows: GUI application (no console window), MinGW linker flags
 mingw {
     QMAKE_LFLAGS_CONSOLE = -Wl,-subsystem,windows -mthreads
 }
@@ -476,16 +489,17 @@ mingw {
 TARGET   = OpenFOAMGUI
 TEMPLATE = app
 
-SOURCES  += src/main.cpp src/mainwindow.cpp src/casebrowser.cpp \
-            src/codeeditor.cpp src/ofhighlighter.cpp src/ofparser.cpp \
-            src/linenumberarea.cpp src/languagedetector.cpp \
+SOURCES  += src/main.cpp src/mainwindow.cpp src/fileviewer.cpp \
+            src/casebrowser.cpp src/codeeditor.cpp src/ofhighlighter.cpp \
+            src/ofparser.cpp src/linenumberarea.cpp src/languagedetector.cpp \
             src/bctypedatabase.cpp src/bcpanel.cpp \
             src/turbulencemodeldatabase.cpp src/turbulencepanel.cpp \
             src/schemespanel.cpp src/snappypanel.cpp src/dictpanel.cpp
 
-HEADERS  += src/mainwindow.h src/casebrowser.h src/codeeditor.h \
-            src/ofhighlighter.h src/ofparser.h src/linenumberarea.h \
-            src/languagedetector.h src/bctypedatabase.h src/bcpanel.h \
+HEADERS  += src/mainwindow.h src/fileviewer.h \
+            src/casebrowser.h src/codeeditor.h src/ofhighlighter.h \
+            src/ofparser.h src/linenumberarea.h src/languagedetector.h \
+            src/bctypedatabase.h src/bcpanel.h \
             src/turbulencemodeldatabase.h src/turbulencepanel.h \
             src/schemespanel.h src/snappypanel.h src/dictpanel.h
 
@@ -494,7 +508,7 @@ RC_ICONS   = src/bychen.ico
 ```
 
 - **C++17** standard with GNU extensions (`-std=gnu++1z`)
-- **Qt modules**: Core, GUI, Widgets
+- **Qt modules**: Core, GUI, Widgets, SvgWidgets (SVG rendering)
 - **Linker**: `-Wl,-subsystem,windows` suppresses the console window on Windows
 - **Resources**: `resources.qrc` embeds the application icon; `RC_ICONS` sets the Windows `.exe` icon
 
@@ -541,7 +555,7 @@ mingw32-make -f Makefile.Release
 
 **Linked libraries:**
 ```
-libQt6Widgets.a  libQt6Gui.a  libQt6Core.a
+libQt6SvgWidgets.a  libQt6Svg.a  libQt6Widgets.a  libQt6Gui.a  libQt6Core.a
 ```
 
 ### Qt Creator Build
@@ -568,7 +582,7 @@ make -f Makefile.Release
 ## Usage
 
 1. Launch `OpenFOAMGUI.exe`
-2. **File → Open Case** (`Ctrl+O`) and select an OpenFOAM case directory
+2. **Case → Open Case** (`Ctrl+O`) and select an OpenFOAM case directory
 3. Double-click any file in the **Case Browser** dock to open it in the editor
 4. The right-side panel automatically switches context:
    - Field files (U, p, k, etc.) → **Boundary Conditions** panel
@@ -594,6 +608,7 @@ OpenFOAMGUI/
 │   ├── ofparser.h / .cpp              # OpenFOAM file header/keyword parser
 │   ├── languagedetector.h / .cpp      # File language auto-detection (OF vs C++)
 │   ├── linenumberarea.h / .cpp        # Line number margin widget
+│   ├── fileviewer.h / .cpp            # File viewer: images, GS detection, zoom controls
 │   ├── bcpanel.h / .cpp               # Boundary conditions panel (RTM table + patches)
 │   ├── bctypedatabase.h / .cpp        # 100+ BC type definitions database
 │   ├── turbulencepanel.h / .cpp       # RAS/LES turbulence model panel
