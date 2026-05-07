@@ -28,13 +28,11 @@ SOURCES += \
     src/schemespanel.cpp \
     src/snappypanel.cpp \
     src/dictpanel.cpp \
-#    src/meshviewer.cpp \
     src/ofmeshreader.cpp
 
 HEADERS += \
     src/mainwindow.h \
     src/fileviewer.h \
-#    src/meshviewer.h \
     src/ofmeshreader.h \
     src/casebrowser.h \
     src/codeeditor.h \
