@@ -158,6 +158,7 @@ Exit     Ctrl+Q                   ────────────
 | 文件类型 | 扩展名 | 查看方式 |
 |---------|--------|---------|
 | **光栅图片** | PNG, JPG, JPEG, BMP, GIF, WebP, ICO | QScrollArea + QLabel(QPixmap) 原生显示 |
+| **EPS 矢量图** | EPS, EPSF, PS | QPixmap → Ghostscript 渲染 → 系统默认程序（三级回退） |
 | **矢量图片** | SVG | QSvgWidget 矢量渲染 |
 | **PDF** | PDF | 自动用系统默认程序打开；标签页显示信息卡片 + 手动打开按钮 |
 | **Word** | DOC, DOCX | 自动用系统默认程序打开 |
@@ -171,6 +172,22 @@ Exit     Ctrl+Q                   ────────────
 - 关闭图片/文档标签页时不弹出未保存提示
 
 **项目文件变更**：`OpenFOAMGUI.pro` 新增 `svgwidgets` 模块。
+
+---
+
+### EPS 图片查看支持
+
+**功能**：支持 EPS（Encapsulated PostScript）矢量图的原生查看。
+
+**三级渲染回退策略**（`src/mainwindow.cpp`）：
+
+| 优先级 | 方法 | 说明 |
+|--------|------|------|
+| 1 | QPixmap 直接加载 | 部分平台/插件可原生读取 |
+| 2 | Ghostscript 渲染 | 自动搜索 `gswin64c`/`gs`，将 EPS 转为临时 PNG |
+| 3 | 系统默认程序 | 所有渲染器不可用时外部打开 |
+
+Ghostscript 搜索路径包括 PATH、`C:/Program Files/gs/*/bin/gswin64c.exe` 等常见安装位置。
 
 ---
 
