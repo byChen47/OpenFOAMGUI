@@ -790,21 +790,21 @@ void MainWindow::onTabContextMenu(const QPoint &pos)
 
     QAction *closeOthers = menu.addAction("Close Other Tabs");
     connect(closeOthers, &QAction::triggered, [this, idx]() {
-        // Collect editor tabs except current (skip welcome QLabel tabs)
+        // Close all non-welcome tabs except the current one
         QVector<int> toClose;
         for (int i = m_tabWidget->count() - 1; i >= 0; --i) {
-            if (i != idx && qobject_cast<CodeEditor*>(m_tabWidget->widget(i)))
+            if (i != idx && !qobject_cast<QLabel*>(m_tabWidget->widget(i)))
                 toClose.append(i);
         }
         for (int i : toClose)
-            onCloseTab(i); // onCloseTab handles unsaved prompts
+            onCloseTab(i);
     });
 
     QAction *closeAll = menu.addAction("Close All Tabs");
     connect(closeAll, &QAction::triggered, [this]() {
-        // Close all editor tabs from right to left
+        // Close all non-welcome tabs (editors, images, PDF cards, etc.)
         for (int i = m_tabWidget->count() - 1; i >= 0; --i) {
-            if (qobject_cast<CodeEditor*>(m_tabWidget->widget(i)))
+            if (!qobject_cast<QLabel*>(m_tabWidget->widget(i)))
                 onCloseTab(i);
         }
     });
