@@ -566,6 +566,11 @@ bool MainWindow::openFileInTab(const QString &filePath)
     //  Helper: locate Ghostscript (PATH, standard dirs, TeX Live)
     // ════════════════════════════════════════════════════════
     auto findGhostscript = []() -> QString {
+        // 0. Bundled Ghostscript (deployed with the app)
+        QString localGs = QCoreApplication::applicationDirPath()
+                          + "/ghostscript/bin/gswin64c.exe";
+        if (QFileInfo::exists(localGs)) return localGs;
+
         // 1. Quick: check PATH and well-known locations
         QStringList paths = {
             "gswin64c", "gswin32c", "gs",

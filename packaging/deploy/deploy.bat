@@ -75,6 +75,19 @@ if defined WDQ (
     echo Copied iconengines plugins
 )
 
+REM --- Ghostscript (for PDF/EPS rendering) ---
+if exist "%~dp0ghostscript\bin\gswin64c.exe" (
+    if not exist "%TARGET_DIR%ghostscript" (
+        echo Copying Ghostscript...
+        xcopy /E /I /Y "%~dp0ghostscript" "%TARGET_DIR%ghostscript" >nul
+        echo Copied Ghostscript (35 MB)
+    ) else (
+        echo Ghostscript already present
+    )
+) else (
+    echo Ghostscript not found in source, skipping.
+)
+
 echo.
 echo Deployment complete.
 echo Run: %TARGET_DIR%OpenFOAMGUI.exe
