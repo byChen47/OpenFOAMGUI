@@ -23,7 +23,6 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QTimer>
-#include <QTextBrowser>
 
 #include <QApplication>
 #include <QFileDialog>
@@ -742,207 +741,20 @@ bool MainWindow::openFileInTab(const QString &filePath)
     }
 
     // ════════════════════════════════════════════════════════
-    //  PDF — render via Ghostscript with page navigation
+    //  PDF / Office — open with system default application
     // ════════════════════════════════════════════════════════
-    if (ext == "pdf") {
-        for (int i = 0; i < m_tabWidget->count(); ++i) {
-            if (m_tabWidget->tabToolTip(i) == filePath) {
-                m_tabWidget->setCurrentIndex(i);
-                return true;
-            }
-        }
-        QString gsExe = findGhostscript();
-        if (gsExe.isEmpty()) {
-            statusBar()->showMessage("Ghostscript not found (required for PDF).", 5000);
-            return false;
-        }
-        QString tmpBase = QDir::temp().filePath(
-            QString("ofgui_pdf_%1").arg(fi.completeBaseName().replace(QRegularExpression("[^a-zA-Z0-9_]"),"_")));
-        QProcess gsProc;
-        gsProc.start(gsExe, {"-dSAFER","-dBATCH","-dNOPAUSE","-sDEVICE=png16m","-r150",
-            "-sOutputFile=" + tmpBase + "_p%03d.png", filePath});
-        if (!gsProc.waitForFinished(60000) || gsProc.exitCode() != 0) {
-            statusBar()->showMessage("Failed to render PDF.", 4000); return false;
-        }
-        QStringList pages;
-        for (int p=1;;++p) {
-            QString png = QString("%1_p%2.png").arg(tmpBase).arg(p,3,10,QChar('0'));
-            if (QFileInfo::exists(png)) pages.append(png); else break;
-        }
-        if (pages.isEmpty()) { statusBar()->showMessage("PDF has no pages.", 4000); return false; }
+    if (ext == "pdf" || ext == "doc" || ext == "docx"
+        || ext == "xls" || ext == "xlsx" || ext == "ppt" || ext == "pptx") {
 
-        QWidget *container = new QWidget();
-        auto *cl = new QVBoxLayout(container);
-        cl->setContentsMargins(0,0,0,0); cl->setSpacing(2);
-        auto *nav = new QHBoxLayout(); nav->setContentsMargins(4,2,4,2);
-        auto *prev = new QPushButton("< Prev"); auto *next = new QPushButton("Next >");
-        auto *pgLab = new QLabel(QString("1 / %1").arg(pages.size()));
-        pgLab->setAlignment(Qt::AlignCenter); pgLab->setStyleSheet("font-weight:bold;font-size:12px;");
-        nav->addWidget(prev); nav->addStretch(); nav->addWidget(pgLab); nav->addStretch(); nav->addWidget(next);
-        cl->addLayout(nav);
-        auto *zBar = new QHBoxLayout(); zBar->setContentsMargins(4,2,4,2);
-        auto *zOut=new QPushButton("-");zOut->setFixedSize(28,28);auto *zIn=new QPushButton("+");zIn->setFixedSize(28,28);
-        auto *zFit=new QPushButton("Fit");zFit->setFixedHeight(28);auto *zOne=new QPushButton("1:1");zOne->setFixedHeight(28);
-        auto *zLab=new QLabel("Fit");zLab->setFixedWidth(50);zLab->setAlignment(Qt::AlignCenter);zLab->setStyleSheet("font-size:11px;color:#555;");
-        zBar->addWidget(zOut);zBar->addWidget(zLab);zBar->addWidget(zIn);zBar->addWidget(zFit);zBar->addWidget(zOne);zBar->addStretch();
-        cl->addLayout(zBar);
-        auto *scroll = new QScrollArea(); scroll->setAlignment(Qt::AlignCenter); scroll->setWidgetResizable(false);
-        auto *imLab = new QLabel(); imLab->setAlignment(Qt::AlignCenter); imLab->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Ignored);
-        scroll->setWidget(imLab); cl->addWidget(scroll,1);
-
-        int curPg=0; double zf=0;
-        QVector<QPixmap> pms; for(auto&pf:pages){QPixmap pm(pf);if(!pm.isNull())pms.append(pm);}
-        auto showPg=[&](int pg){
-            if(pg<0||pg>=pms.size())return;
-            curPg=pg;
-            pgLab->setText(QString("%1 / %2").arg(pg+1).arg(pms.size()));
-            prev->setEnabled(pg>0); next->setEnabled(pg<pms.size()-1);
-            QPixmap&pm=pms[pg];
-            if(zf<=0.001){QSize vs=scroll->viewport()->size()-QSize(4,4);double f=qMin((double)vs.width()/pm.width(),(double)vs.height()/pm.height());
-                imLab->setPixmap(pm.scaled(pm.size()*f,Qt::KeepAspectRatio,Qt::SmoothTransformation));imLab->resize(pm.size()*f);zLab->setText("Fit");}
-            else{QSize ns=pm.size()*zf;imLab->setPixmap(pm.scaled(ns,Qt::KeepAspectRatio,Qt::SmoothTransformation));imLab->resize(ns);zLab->setText(QString("%1%").arg((int)(zf*100)));}
-        };
-        connect(prev,&QPushButton::clicked,[showPg,&curPg](){showPg(curPg-1);});
-        connect(next,&QPushButton::clicked,[showPg,&curPg](){showPg(curPg+1);});
-        connect(zIn,&QPushButton::clicked,[&zf,showPg,&curPg](){zf=qMin(qMax(zf,0.1)*1.25,10.0);showPg(curPg);});
-        connect(zOut,&QPushButton::clicked,[&zf,showPg,&curPg](){zf=qMax(qMax(zf,0.1)/1.25,0.05);showPg(curPg);});
-        connect(zFit,&QPushButton::clicked,[&zf,showPg,&curPg](){zf=0;showPg(curPg);});
-        connect(zOne,&QPushButton::clicked,[&zf,showPg,&curPg](){zf=1.0;showPg(curPg);});
-        showPg(0);
-        int idx=m_tabWidget->addTab(container,fi.fileName());
-        m_tabWidget->setCurrentWidget(container);m_tabWidget->setTabToolTip(idx,filePath);
-        statusBar()->showMessage(QString("PDF: %1 (%2 pages)").arg(fi.fileName()).arg(pms.size()),4000);
-        return true;
-    }
-
-    // ════════════════════════════════════════════════════════
-    //  Office documents — text extraction via unzip + XML
-    // ════════════════════════════════════════════════════════
-    if (ext == "docx" || ext == "xlsx" || ext == "pptx") {
         QString typeName;
-        if (ext == "docx") typeName = "Word";
-        else if (ext == "xlsx") typeName = "Excel";
+        if (ext == "pdf") typeName = "PDF";
+        else if (ext == "doc" || ext == "docx") typeName = "Word";
+        else if (ext == "xls" || ext == "xlsx") typeName = "Excel";
         else typeName = "PowerPoint";
 
-        QString text;
-        QString tmpDir = QDir::temp().filePath(
-            QString("ofgui_office_%1").arg(fi.completeBaseName().replace(QRegularExpression("[^a-zA-Z0-9_]"),"_")));
-        QDir().mkpath(tmpDir);
-
-        QProcess unzip;
-        unzip.start("unzip", {"-o", filePath, "-d", tmpDir});
-        if (unzip.waitForFinished(30000) && unzip.exitCode() == 0) {
-            if (ext == "docx") {
-                QFile xmlF(tmpDir + "/word/document.xml");
-                if (xmlF.open(QFile::ReadOnly|QFile::Text)) {
-                    QString xml = QString::fromUtf8(xmlF.readAll()); xmlF.close();
-                    QRegularExpression tRe(R"(<w:t[^>]*>([^<]*)</w:t>)");
-                    auto ti = tRe.globalMatch(xml);
-                    QStringList pars;
-                    while (ti.hasNext()) { auto tm = ti.next(); QString t = tm.captured(1).trimmed(); if (!t.isEmpty()) pars.append(t); }
-                    text = pars.join("\n");
-                }
-            } else if (ext == "xlsx") {
-                // Load shared strings
-                QStringList shared;
-                QFile ssF(tmpDir + "/xl/sharedStrings.xml");
-                if (ssF.open(QFile::ReadOnly|QFile::Text)) {
-                    QString xml = QString::fromUtf8(ssF.readAll()); ssF.close();
-                    QRegularExpression siRe(R"(<si>(.*?)</si>)", QRegularExpression::DotMatchesEverythingOption);
-                    auto siIt = siRe.globalMatch(xml);
-                    while (siIt.hasNext()) {
-                        auto sm = siIt.next();
-                        QString siText;
-                        QRegularExpression tRe(R"(<t[^>]*>([^<]*)</t>)");
-                        auto ti = tRe.globalMatch(sm.captured(1));
-                        while (ti.hasNext()) siText += ti.next().captured(1);
-                        shared.append(siText);
-                    }
-                }
-
-                // Process all worksheets
-                QDir wsDir(tmpDir + "/xl/worksheets");
-                auto wsFiles = wsDir.entryInfoList({"sheet*.xml"}, QDir::Files, QDir::Name);
-                for (const auto &wsFi : wsFiles) {
-                    QFile shF(wsFi.absoluteFilePath());
-                    if (!shF.open(QFile::ReadOnly|QFile::Text)) continue;
-                    QString xml = QString::fromUtf8(shF.readAll()); shF.close();
-
-                    if (!text.isEmpty()) text += "\n\n";
-                    text += "═══ " + wsFi.completeBaseName() + " ═══\n";
-
-                    // Parse each row
-                    QRegularExpression rowRe(R"(<row[^>]*>(.*?)</row>)", QRegularExpression::DotMatchesEverythingOption);
-                    auto rowIt = rowRe.globalMatch(xml);
-                    while (rowIt.hasNext()) {
-                        auto rm = rowIt.next();
-                        QStringList cells;
-                        // Parse each cell: handle shared-string, number, inline, boolean, and formula
-                        QRegularExpression cellRe(
-                            R"re(<c[^>]*?(?:\s+t="(\w+)")?[^>]*>(.*?)</c>)re",
-                            QRegularExpression::DotMatchesEverythingOption);
-                        auto cellIt = cellRe.globalMatch(rm.captured(1));
-                        while (cellIt.hasNext()) {
-                            auto cm = cellIt.next();
-                            QString ctype = cm.captured(1); // "s", "b", "inlineStr", "str", or empty
-                            QString inner = cm.captured(2);
-
-                            QString val;
-                            if (ctype == "s") {
-                                // Shared string index
-                                QRegularExpression vRe(R"(<v>(\d+)</v>)");
-                                auto vm = vRe.match(inner);
-                                if (vm.hasMatch()) {
-                                    int idx = vm.captured(1).toInt();
-                                    if (idx < shared.size()) val = shared[idx];
-                                    else val = "?";
-                                }
-                            } else if (ctype == "inlineStr") {
-                                QRegularExpression isRe(R"(<t[^>]*>([^<]*)</t>)");
-                                auto ism = isRe.match(inner);
-                                if (ism.hasMatch()) val = ism.captured(1);
-                            } else if (ctype == "b") {
-                                QRegularExpression vRe(R"(<v>(\d+)</v>)");
-                                auto vm = vRe.match(inner);
-                                val = (vm.hasMatch() && vm.captured(1) == "1") ? "TRUE" : "FALSE";
-                            } else {
-                                // Number or formula result
-                                QRegularExpression vRe(R"(<v>([^<]*)</v>)");
-                                auto vm = vRe.match(inner);
-                                if (vm.hasMatch()) val = vm.captured(1);
-                            }
-                            cells.append(val);
-                        }
-                        if (!cells.isEmpty())
-                            text += cells.join("\t") + "\n";
-                    }
-                }
-            } else {
-                QDir slidesDir(tmpDir + "/ppt/slides");
-                auto sf = slidesDir.entryInfoList({"slide*.xml"}, QDir::Files, QDir::Name);
-                for (const auto &s : sf) {
-                    QFile f(s.absoluteFilePath());
-                    if (f.open(QFile::ReadOnly|QFile::Text)) {
-                        QString xml = QString::fromUtf8(f.readAll()); f.close();
-                        QRegularExpression tRe(R"(<a:t[^>]*>([^<]*)</a:t>)");
-                        auto ti = tRe.globalMatch(xml);
-                        while (ti.hasNext()) text += ti.next().captured(1) + "\n";
-                        text += "\n---\n";
-                    }
-                }
-            }
-        }
-        QDir(tmpDir).removeRecursively();
-
-        if (text.isEmpty())
-            text = "[Could not extract content from this file.\nRight-click → Open With... to use an external viewer.]";
-
-        auto *tb = new QTextBrowser();
-        tb->setPlainText(text);
-        tb->setStyleSheet("QTextBrowser{font-family:'Segoe UI',sans-serif;font-size:13px;padding:12px;color:#333;background:white;}");
-        int idx = m_tabWidget->addTab(tb, fi.fileName());
-        m_tabWidget->setCurrentWidget(tb); m_tabWidget->setTabToolTip(idx, filePath);
-        statusBar()->showMessage(QString("Opened %1: %2").arg(typeName, fi.fileName()), 3000);
+        QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
+        statusBar()->showMessage(
+            QString("Opened %1 externally: %2").arg(typeName, fi.fileName()), 4000);
         return true;
     }
 
