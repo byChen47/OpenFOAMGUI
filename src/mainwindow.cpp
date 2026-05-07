@@ -72,7 +72,7 @@ MainWindow::MainWindow(QWidget *parent)
         "<h2>Welcome to OpenFOAM GUI</h2>"
         "<p>A CFD case manager for OpenFOAM v2206</p>"
         "<br>"
-        "<p><b>File → Open Case</b> to open an OpenFOAM case directory</p>"
+        "<p><b>Case → Open Case</b> to open an OpenFOAM case directory</p>"
         "<p>or drag &amp; drop a case folder onto the browser panel.</p>");
     m_tabWidget->addTab(welcomeLabel, "Welcome");
 }
@@ -196,10 +196,8 @@ void MainWindow::createActions()
 
 void MainWindow::createMenus()
 {
-    // File menu
+    // File menu — file-level operations only
     m_fileMenu = menuBar()->addMenu("&File");
-    m_fileMenu->addAction(m_openCaseAction);
-    m_fileMenu->addAction(m_closeCaseAction);
     m_recentCasesMenu = m_fileMenu->addMenu("&Recent Cases");
     for (int i = 0; i < MaxRecentCases; ++i)
         m_recentCasesMenu->addAction(m_recentCaseActions[i]);
@@ -212,23 +210,19 @@ void MainWindow::createMenus()
     m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_exitAction);
 
-    // Edit menu
+    // Edit menu — text editing + utility operations
     m_editMenu = menuBar()->addMenu("&Edit");
     m_editMenu->addAction(m_undoAction);
     m_editMenu->addAction(m_redoAction);
     m_editMenu->addSeparator();
     m_editMenu->addAction(m_findAction);
     m_editMenu->addAction(m_commentAction);
-    m_editMenu->addSeparator();
-    m_editMenu->addAction(m_saveAllAction);
-    m_editMenu->addAction(m_cleanTimeAction);
-    m_editMenu->addAction(m_refreshAction);
 
     // View menu
     m_viewMenu = menuBar()->addMenu("&View");
     m_viewMenu->addSeparator();
 
-    // Case menu
+    // Case menu — case-level operations (open, close, create, clean, sync, tools)
     m_caseMenu = menuBar()->addMenu("&Case");
     m_caseMenu->addAction(m_openCaseAction);
     m_caseMenu->addAction(m_closeCaseAction);
@@ -238,6 +232,7 @@ void MainWindow::createMenus()
     m_caseMenu->addAction(m_deleteAction);
     m_caseMenu->addAction(m_cleanTimeAction);
     m_caseMenu->addAction(m_syncBoundariesAction);
+    m_caseMenu->addSeparator();
     m_caseMenu->addAction(m_paraviewAction);
     m_caseMenu->addAction(m_paraviewConfigAction);
     m_caseMenu->addSeparator();
