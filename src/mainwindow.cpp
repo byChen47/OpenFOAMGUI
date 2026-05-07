@@ -8,21 +8,18 @@
 #include "schemespanel.h"
 #include "snappypanel.h"
 #include "dictpanel.h"
+#include "fileviewer.h"
 
 #include <QProcess>
 #include <QDir>
-#include <QDirIterator>
 #include <QStandardPaths>
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QFileDialog>
 #include <QRegularExpression>
 #include <QSet>
-#include <QScrollArea>
-#include <QSvgWidget>
 #include <QDesktopServices>
 #include <QUrl>
-#include <QTimer>
 
 #include <QApplication>
 #include <QTabBar>
@@ -559,200 +556,34 @@ bool MainWindow::openFileInTab(const QString &filePath)
     QFileInfo fi(filePath);
     QString ext = fi.suffix().toLower();
 
-    // ════════════════════════════════════════════════════════
-    //  Helper: locate Ghostscript (PATH, standard dirs, TeX Live)
-    // ════════════════════════════════════════════════════════
-    auto findGhostscript = []() -> QString {
-        // 0. Bundled Ghostscript (deployed with the app)
-        QString localGs = QCoreApplication::applicationDirPath()
-                          + "/ghostscript/bin/gswin64c.exe";
-        if (QFileInfo::exists(localGs)) return localGs;
-
-        // 1. Quick: check PATH and well-known locations
-        QStringList paths = {
-            "gswin64c", "gswin32c", "gs",
-            "C:/Program Files/gs/gs10.04.0/bin/gswin64c.exe",
-            "C:/Program Files/gs/gs10.03.1/bin/gswin64c.exe",
-            "C:/Program Files/gs/gs10.03.0/bin/gswin64c.exe",
-            "C:/Program Files/gs/gs9.56.1/bin/gswin64c.exe",
-            "C:/Program Files/gs/gs9.55.0/bin/gswin64c.exe",
-        };
-        // Standard TeX Live paths
-        for (const auto &drive : {"C:", "D:", "E:"}) {
-            for (int y = 2020; y <= 2027; ++y)
-                paths.append(QString("%1/texlive/%2/tlpkg/tlgs/bin/gswin64c.exe").arg(drive).arg(y));
-        }
-        for (const auto &p : paths) {
-            if (QFileInfo::exists(p)) return p;
-        }
-        // 2. Slow: recursive search under common LaTeX install dirs
-        QStringList searchRoots;
-        for (const auto &drive : {"C:/", "D:/", "E:/"}) {
-            QDir root(drive);
-            auto dirs = root.entryList({"*tex*", "*latex*", "*LaTex*", "*TeX*", "*texlive*"},
-                                       QDir::Dirs | QDir::NoDotAndDotDot);
-            for (const auto &d : dirs)
-                searchRoots.append(drive + d);
-        }
-        for (const auto &root : searchRoots) {
-            QDirIterator it(root, {"gswin64c.exe"}, QDir::Files,
-                            QDirIterator::Subdirectories);
-            while (it.hasNext()) {
-                it.next();
-                QString candidate = it.filePath();
-                if (candidate.contains("tlgs") || candidate.contains("ghostscript"))
-                    return candidate;
-            }
-        }
-        // 3. PATH fallback
-        QString f = QStandardPaths::findExecutable("gswin64c");
-        if (!f.isEmpty()) return f;
-        return QStandardPaths::findExecutable("gs");
-    };
-
-    // ════════════════════════════════════════════════════════
-    //  Image files — display natively with zoom controls
-    // ════════════════════════════════════════════════════════
-    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp"
-        || ext == "gif" || ext == "webp" || ext == "ico" || ext == "svg"
-        || ext == "eps" || ext == "epsf" || ext == "ps") {
-
-        // Check if already open
+    // ── Image files — native display with zoom ──
+    if (FileViewer::isImageFile(ext)) {
         for (int i = 0; i < m_tabWidget->count(); ++i) {
             if (m_tabWidget->tabToolTip(i) == filePath) {
                 m_tabWidget->setCurrentIndex(i);
                 return true;
             }
         }
-
-        auto *scrollArea = new QScrollArea();
-        scrollArea->setAlignment(Qt::AlignCenter);
-
-        bool isEps = (ext == "eps" || ext == "epsf" || ext == "ps");
-        bool isSvg = (ext == "svg");
-        bool loaded = false;
-        QPixmap basePixmap;
-
-        if (isSvg) {
-            // SVG: use QSvgWidget for vector rendering
-            auto *svgWidget = new QSvgWidget(filePath);
-            svgWidget->setMinimumSize(100, 100);
-            scrollArea->setWidget(svgWidget);
-            loaded = true;
-        } else if (isEps) {
-            // EPS: try QPixmap first, then Ghostscript render
-            basePixmap = QPixmap(filePath);
-            if (!basePixmap.isNull()) {
-                loaded = true;
-            } else {
-                // Try Ghostscript render
-                QString gsExe = findGhostscript();
-                if (!gsExe.isEmpty()) {
-                    QString tmpPng = QDir::temp().filePath(
-                        QString("ofgui_eps_%1.png").arg(
-                            fi.completeBaseName().replace(QRegularExpression("[^a-zA-Z0-9_]"), "_")));
-                    QProcess gsProc;
-                    gsProc.start(gsExe, {
-                        "-dSAFER", "-dBATCH", "-dNOPAUSE",
-                        "-sDEVICE=png16m", "-r150",
-                        "-sOutputFile=" + tmpPng,
-                        filePath
-                    });
-                    if (gsProc.waitForFinished(30000) && gsProc.exitCode() == 0
-                        && QFileInfo::exists(tmpPng)) {
-                        basePixmap = QPixmap(tmpPng);
-                        if (!basePixmap.isNull()) loaded = true;
-                    }
-                }
-            }
-        } else {
-            // Raster images: load basePixmap for zoom support
-            basePixmap = QPixmap(filePath);
-            if (!basePixmap.isNull()) loaded = true;
-        }
-
-        if (!loaded) {
-            delete scrollArea;
-            statusBar()->showMessage(
-                "Cannot render: " + fi.fileName()
-                + " (Ghostscript not found for EPS)", 6000);
+        bool loaded;
+        QString error;
+        QWidget *viewer = FileViewer::createImageViewer(filePath, loaded, error);
+        if (!viewer) {
+            statusBar()->showMessage(error, 6000);
             return false;
         }
-
-        // Build viewer with zoom controls
-        QWidget *container = new QWidget();
-        auto *cl = new QVBoxLayout(container);
-        cl->setContentsMargins(0, 0, 0, 0);
-        cl->setSpacing(2);
-
-        // Zoom toolbar
-        auto *zBar = new QHBoxLayout();
-        zBar->setContentsMargins(4, 2, 4, 2);
-        auto *zOut = new QPushButton(QString::fromUtf8("\xe2\x88\x92")); zOut->setFixedSize(28,28); zOut->setToolTip("Zoom Out");
-        auto *zIn  = new QPushButton("+"); zIn->setFixedSize(28,28); zIn->setToolTip("Zoom In");
-        auto *zFit = new QPushButton("Fit"); zFit->setFixedHeight(28); zFit->setToolTip("Fit to Window");
-        auto *zOne = new QPushButton("1:1"); zOne->setFixedHeight(28); zOne->setToolTip("Original Size");
-        auto *zLab = new QLabel("100%"); zLab->setFixedWidth(50); zLab->setAlignment(Qt::AlignCenter);
-        zLab->setStyleSheet("font-size: 11px; color: #555;");
-        zBar->addWidget(zOut); zBar->addWidget(zLab); zBar->addWidget(zIn);
-        zBar->addWidget(zFit); zBar->addWidget(zOne); zBar->addStretch();
-        cl->addLayout(zBar);
-
-        cl->addWidget(scrollArea, 1);
-        scrollArea->setWidgetResizable(isSvg);
-
-        // Zoom logic for raster images
-        if (!isSvg && !basePixmap.isNull()) {
-            auto *imLab = new QLabel();
-            imLab->setPixmap(basePixmap);
-            imLab->setAlignment(Qt::AlignCenter);
-            imLab->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
-            scrollArea->setWidget(imLab);
-
-            double *zf = new double(1.0);
-            auto applyZoom = [imLab, zLab, scrollArea](double f, QPixmap base) {
-                QSize ns = base.size() * f;
-                imLab->setPixmap(base.scaled(ns, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-                imLab->resize(ns);
-                zLab->setText(QString("%1%").arg((int)(f*100)));
-            };
-            auto fitWin = [imLab, zLab, scrollArea](QPixmap base) {
-                QSize vs = scrollArea->viewport()->size() - QSize(4,4);
-                double f = qMin((double)vs.width()/base.width(), (double)vs.height()/base.height());
-                imLab->setPixmap(base.scaled(base.size()*f, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-                imLab->resize(base.size()*f);
-                zLab->setText("Fit");
-            };
-            QPixmap baseCopy = basePixmap;
-            connect(zIn,  &QPushButton::clicked, [zf, applyZoom, baseCopy]() { *zf = qMin(*zf*1.25, 10.0); applyZoom(*zf, baseCopy); });
-            connect(zOut, &QPushButton::clicked, [zf, applyZoom, baseCopy]() { *zf = qMax(*zf/1.25, 0.05); applyZoom(*zf, baseCopy); });
-            connect(zFit, &QPushButton::clicked, [zf, fitWin, baseCopy]() { *zf = 0; fitWin(baseCopy); });
-            connect(zOne, &QPushButton::clicked, [zf, applyZoom, baseCopy]() { *zf = 1.0; applyZoom(*zf, baseCopy); });
-            QTimer::singleShot(100, scrollArea, [fitWin, baseCopy, scrollArea]() { fitWin(baseCopy); });
-        }
-
-        int idx = m_tabWidget->addTab(container, fi.fileName());
-        m_tabWidget->setCurrentWidget(container);
+        int idx = m_tabWidget->addTab(viewer, fi.fileName());
+        m_tabWidget->setCurrentWidget(viewer);
         m_tabWidget->setTabToolTip(idx, filePath);
         statusBar()->showMessage("Opened: " + fi.fileName(), 3000);
         return true;
     }
 
-    // ════════════════════════════════════════════════════════
-    //  PDF / Office — open with system default application
-    // ════════════════════════════════════════════════════════
-    if (ext == "pdf" || ext == "doc" || ext == "docx"
-        || ext == "xls" || ext == "xlsx" || ext == "ppt" || ext == "pptx") {
-
-        QString typeName;
-        if (ext == "pdf") typeName = "PDF";
-        else if (ext == "doc" || ext == "docx") typeName = "Word";
-        else if (ext == "xls" || ext == "xlsx") typeName = "Excel";
-        else typeName = "PowerPoint";
-
+    // ── PDF / Office — system default app ──
+    if (FileViewer::isOfficeFile(ext)) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
         statusBar()->showMessage(
-            QString("Opened %1 externally: %2").arg(typeName, fi.fileName()), 4000);
+            QString("Opened %1 externally: %2")
+                .arg(FileViewer::officeTypeName(ext), fi.fileName()), 4000);
         return true;
     }
 

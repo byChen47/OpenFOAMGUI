@@ -15,6 +15,7 @@ TEMPLATE = app
 SOURCES += \
     src/main.cpp \
     src/mainwindow.cpp \
+    src/fileviewer.cpp \
     src/casebrowser.cpp \
     src/codeeditor.cpp \
     src/ofhighlighter.cpp \
@@ -31,6 +32,7 @@ SOURCES += \
 
 HEADERS += \
     src/mainwindow.h \
+    src/fileviewer.h \
     src/casebrowser.h \
     src/codeeditor.h \
     src/ofhighlighter.h \
