@@ -275,7 +275,7 @@ void MainWindow::createToolBar()
     m_mainToolBar->addAction(m_terminalAction);
     m_mainToolBar->addAction(m_paraviewAction);
     m_mainToolBar->addSeparator();
-    m_mainToolBar->addAction(m_meshViewerDock->toggleViewAction());
+    // m_mainToolBar->addAction(m_meshViewerDock->toggleViewAction()); // disabled until 3D viewer fixed
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -335,19 +335,12 @@ void MainWindow::createDockWidgets()
     m_bcPanelDock->setMinimumWidth(320);
     addDockWidget(Qt::RightDockWidgetArea, m_bcPanelDock);
 
-    // 3D Mesh Viewer dock (bottom)
-    m_meshViewer = new MeshViewer();
-    m_meshViewerDock = new QDockWidget("3D Mesh Viewer", this);
-    m_meshViewerDock->setWidget(m_meshViewer);
-    m_meshViewerDock->setFeatures(QDockWidget::DockWidgetMovable
-                                   | QDockWidget::DockWidgetFloatable);
-    m_meshViewerDock->setMinimumHeight(200);
-    addDockWidget(Qt::BottomDockWidgetArea, m_meshViewerDock);
-    m_meshViewerDock->hide(); // hidden by default, toggled via menu
+    // 3D Mesh Viewer dock (bottom) — deferred init to avoid startup crash
+    m_meshViewer = nullptr;
+    m_meshViewerDock = nullptr;
 
     m_viewMenu->addAction(m_caseBrowserDock->toggleViewAction());
     m_viewMenu->addAction(m_bcPanelDock->toggleViewAction());
-    m_viewMenu->addAction(m_meshViewerDock->toggleViewAction());
 
     // Keep toolbar button in sync with dock close/open
     connect(m_bcPanelDock, &QDockWidget::visibilityChanged, [this](bool visible) {
@@ -415,7 +408,7 @@ void MainWindow::setupConnections()
     connect(m_caseBrowser, &CaseBrowser::caseOpened, [this](const QString &path) {
         addRecentCase(path);
         updateWindowTitle();
-        m_meshViewer->loadOpenFOAMCase(path);
+        // m_meshViewer->loadOpenFOAMCase(path); // disabled until 3D viewer fixed
     });
     connect(m_caseBrowser, &CaseBrowser::caseClosed, [this](const QString &) {
         updateWindowTitle();
