@@ -5,7 +5,6 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 CONFIG += c++17
 CONFIG += console
 
-# Override: use windows subsystem (no console) but avoid Qt entry point
 mingw {
     QMAKE_LFLAGS_CONSOLE = -Wl,-subsystem,windows -mthreads
 }
