@@ -22,7 +22,6 @@ class TurbulencePanel;
 class SchemesPanel;
 class SnappyPanel;
 class DictPanel;
-class MeshViewer;
 
 class MainWindow : public QMainWindow
 {
@@ -87,7 +86,6 @@ private:
     SchemesPanel     *m_schemesPanel;
     SnappyPanel      *m_snappyPanel;
     DictPanel        *m_dictPanel;
-    MeshViewer       *m_meshViewer;
     QStackedWidget   *m_rightPanelStack;
 
     // Status bar
@@ -98,7 +96,6 @@ private:
     // Dock widgets
     QDockWidget *m_caseBrowserDock;
     QDockWidget *m_bcPanelDock;
-    QDockWidget *m_meshViewerDock;
 
     // Menus
     QMenu *m_fileMenu;
