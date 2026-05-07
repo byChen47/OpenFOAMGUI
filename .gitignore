@@ -22,19 +22,9 @@ Makefile.Release
 .vscode/
 .idea/
 
-# Packaging (keep scripts, ignore large binaries)
-packaging/deploy/ghostscript/
-packaging/deploy/*.dll
-packaging/deploy/*.exe
-packaging/deploy/platforms/
-packaging/deploy/styles/
-packaging/deploy/imageformats/
-packaging/deploy/iconengines/
-packaging/deploy/generic/
-packaging/deploy/networkinformation/
-packaging/deploy/tls/
-packaging/deploy/OpenFOAMGUI.evb
-packaging/*.exe
+# Deployment (large binaries and generated packages)
+deploy/
+packaging/
 
 # Node
 node_modules/

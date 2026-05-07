@@ -3,15 +3,22 @@
 #include <QSettings>
 #include <QIcon>
 #include <QDir>
+#include <QProcessEnvironment>
 #include "mainwindow.h"
 
 int main(int argc, char *argv[])
 {
-    // Ensure Qt finds plugins when running inside Enigma Virtual Box
-    QCoreApplication::addLibraryPath(
-        QCoreApplication::applicationDirPath());
-    QCoreApplication::addLibraryPath(
-        QCoreApplication::applicationDirPath() + "/platforms");
+    // Fix: Enigma Virtual Box needs explicit plugin paths BEFORE QApplication
+    QString appDir = QCoreApplication::applicationDirPath();
+    QCoreApplication::addLibraryPath(appDir);
+    QCoreApplication::addLibraryPath(appDir + "/platforms");
+    QCoreApplication::addLibraryPath(appDir + "/styles");
+    QCoreApplication::addLibraryPath(appDir + "/imageformats");
+    QCoreApplication::addLibraryPath(appDir + "/iconengines");
+    // Set QT_QPA_PLATFORM_PLUGIN_PATH for Enigma VB compatibility
+    qputenv("QT_QPA_PLATFORM_PLUGIN_PATH",
+            (appDir + "/platforms").toUtf8());
+    qputenv("QT_PLUGIN_PATH", appDir.toUtf8());
 
     QApplication app(argc, argv);
     app.setApplicationName("OpenFOAM GUI");
