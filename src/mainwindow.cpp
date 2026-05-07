@@ -8,7 +8,7 @@
 #include "schemespanel.h"
 #include "snappypanel.h"
 #include "dictpanel.h"
-#include "meshviewer.h"
+//#include "meshviewer.h"  // 3D viewer — enable when meshviewer is ready
 #include "fileviewer.h"
 
 #include <QProcess>
@@ -275,7 +275,6 @@ void MainWindow::createToolBar()
     m_mainToolBar->addAction(m_terminalAction);
     m_mainToolBar->addAction(m_paraviewAction);
     m_mainToolBar->addSeparator();
-    // m_mainToolBar->addAction(m_meshViewerDock->toggleViewAction()); // disabled until 3D viewer fixed
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -334,10 +333,6 @@ void MainWindow::createDockWidgets()
                                | QDockWidget::DockWidgetFloatable);
     m_bcPanelDock->setMinimumWidth(320);
     addDockWidget(Qt::RightDockWidgetArea, m_bcPanelDock);
-
-    // 3D Mesh Viewer dock (bottom) — deferred init to avoid startup crash
-    m_meshViewer = nullptr;
-    m_meshViewerDock = nullptr;
 
     m_viewMenu->addAction(m_caseBrowserDock->toggleViewAction());
     m_viewMenu->addAction(m_bcPanelDock->toggleViewAction());
@@ -408,7 +403,6 @@ void MainWindow::setupConnections()
     connect(m_caseBrowser, &CaseBrowser::caseOpened, [this](const QString &path) {
         addRecentCase(path);
         updateWindowTitle();
-        // m_meshViewer->loadOpenFOAMCase(path); // disabled until 3D viewer fixed
     });
     connect(m_caseBrowser, &CaseBrowser::caseClosed, [this](const QString &) {
         updateWindowTitle();

@@ -3,6 +3,7 @@
 #include <QSettings>
 #include <QIcon>
 #include <QDir>
+#include <QSurfaceFormat>
 #include <QProcessEnvironment>
 #include "mainwindow.h"
 
@@ -15,7 +16,6 @@ int main(int argc, char *argv[])
     QCoreApplication::addLibraryPath(appDir + "/styles");
     QCoreApplication::addLibraryPath(appDir + "/imageformats");
     QCoreApplication::addLibraryPath(appDir + "/iconengines");
-    // Set QT_QPA_PLATFORM_PLUGIN_PATH for Enigma VB compatibility
     qputenv("QT_QPA_PLATFORM_PLUGIN_PATH",
             (appDir + "/platforms").toUtf8());
     qputenv("QT_PLUGIN_PATH", appDir.toUtf8());

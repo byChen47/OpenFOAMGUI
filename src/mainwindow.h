@@ -22,7 +22,7 @@ class TurbulencePanel;
 class SchemesPanel;
 class SnappyPanel;
 class DictPanel;
-class MeshViewer;
+//class MeshViewer; // 3D viewer — enable when meshviewer is ready
 
 class MainWindow : public QMainWindow
 {
@@ -87,7 +87,7 @@ private:
     SchemesPanel     *m_schemesPanel;
     SnappyPanel      *m_snappyPanel;
     DictPanel        *m_dictPanel;
-    MeshViewer       *m_meshViewer;
+//    MeshViewer       *m_meshViewer;  // enable when meshviewer is ready
     QStackedWidget   *m_rightPanelStack;
 
     // Status bar
@@ -98,7 +98,7 @@ private:
     // Dock widgets
     QDockWidget *m_caseBrowserDock;
     QDockWidget *m_bcPanelDock;
-    QDockWidget *m_meshViewerDock;
+//    QDockWidget *m_meshViewerDock;  // enable when meshviewer is ready
 
     // Menus
     QMenu *m_fileMenu;
