@@ -25,14 +25,12 @@
 #include <QTimer>
 
 #include <QApplication>
-#include <QFileDialog>
 #include <QTabBar>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <QFile>
 #include <QTextStream>
-#include <QDir>
 
 // ────────────────────────────────────────────────────────────────────
 // Construction
