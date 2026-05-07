@@ -565,7 +565,8 @@ bool MainWindow::openFileInTab(const QString &filePath)
     //  Image files — display natively in a scrollable viewer
     // ════════════════════════════════════════════════════════
     if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp"
-        || ext == "gif" || ext == "webp" || ext == "ico" || ext == "svg") {
+        || ext == "gif" || ext == "webp" || ext == "ico" || ext == "svg"
+        || ext == "eps" || ext == "epsf" || ext == "ps") {
 
         // Check if already open
         for (int i = 0; i < m_tabWidget->count(); ++i) {
@@ -578,26 +579,99 @@ bool MainWindow::openFileInTab(const QString &filePath)
         auto *scrollArea = new QScrollArea();
         scrollArea->setAlignment(Qt::AlignCenter);
 
+        bool isEps = (ext == "eps" || ext == "epsf" || ext == "ps");
+        bool loaded = false;
+
         if (ext == "svg") {
             // SVG: use QSvgWidget for crisp vector rendering
             auto *svgWidget = new QSvgWidget(filePath);
             svgWidget->setMinimumSize(100, 100);
             scrollArea->setWidget(svgWidget);
+            loaded = true;
+        } else if (isEps) {
+            // EPS: try QPixmap first, then Ghostscript render, then external
+            QPixmap pixmap(filePath);
+            if (!pixmap.isNull()) {
+                // Qt image plugin loaded it directly
+                auto *imageLabel = new QLabel();
+                imageLabel->setPixmap(pixmap);
+                imageLabel->setAlignment(Qt::AlignCenter);
+                imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+                imageLabel->setScaledContents(true);
+                imageLabel->setMinimumSize(1, 1);
+                scrollArea->setWidget(imageLabel);
+                loaded = true;
+            } else {
+                // Try Ghostscript: gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -r150
+                //   -sOutputFile=<temp.png> <input.eps>
+                QString gsExe;
+                QStringList gsPaths = {
+                    "gswin64c", "gswin32c", "gs",
+                    "C:/Program Files/gs/gs10.04.0/bin/gswin64c.exe",
+                    "C:/Program Files/gs/gs10.03.1/bin/gswin64c.exe",
+                    "C:/Program Files/gs/gs10.03.0/bin/gswin64c.exe",
+                    "C:/Program Files/gs/gs9.56.1/bin/gswin64c.exe",
+                    "C:/Program Files/gs/gs9.55.0/bin/gswin64c.exe",
+                };
+                for (const auto &p : gsPaths) {
+                    if (QFileInfo::exists(p)) { gsExe = p; break; }
+                }
+                if (gsExe.isEmpty())
+                    gsExe = QStandardPaths::findExecutable("gswin64c");
+                if (gsExe.isEmpty())
+                    gsExe = QStandardPaths::findExecutable("gs");
+
+                if (!gsExe.isEmpty()) {
+                    QString tmpPng = QDir::temp().filePath(
+                        QString("ofgui_eps_%1.png").arg(
+                            fi.completeBaseName().replace(QRegularExpression("[^a-zA-Z0-9_]"), "_")));
+                    QProcess gsProc;
+                    gsProc.start(gsExe, {
+                        "-dSAFER", "-dBATCH", "-dNOPAUSE",
+                        "-sDEVICE=png16m", "-r150",
+                        "-sOutputFile=" + tmpPng,
+                        filePath
+                    });
+                    if (gsProc.waitForFinished(30000) && gsProc.exitCode() == 0
+                        && QFileInfo::exists(tmpPng)) {
+                        QPixmap rendered(tmpPng);
+                        if (!rendered.isNull()) {
+                            auto *imageLabel = new QLabel();
+                            imageLabel->setPixmap(rendered);
+                            imageLabel->setAlignment(Qt::AlignCenter);
+                            imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+                            imageLabel->setScaledContents(true);
+                            imageLabel->setMinimumSize(1, 1);
+                            scrollArea->setWidget(imageLabel);
+                            loaded = true;
+                            // Clean up temp file on app exit (keep while viewing)
+                            QFile::setPermissions(tmpPng, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+                        }
+                    }
+                }
+            }
         } else {
             // Raster images: QLabel + QPixmap
             QPixmap pixmap(filePath);
-            if (pixmap.isNull()) {
-                statusBar()->showMessage("Cannot load image: " + fi.fileName(), 4000);
-                return false;
+            if (!pixmap.isNull()) {
+                auto *imageLabel = new QLabel();
+                imageLabel->setPixmap(pixmap);
+                imageLabel->setAlignment(Qt::AlignCenter);
+                imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+                imageLabel->setScaledContents(true);
+                imageLabel->setMinimumSize(1, 1);
+                scrollArea->setWidget(imageLabel);
+                loaded = true;
             }
-            auto *imageLabel = new QLabel();
-            imageLabel->setPixmap(pixmap);
-            imageLabel->setAlignment(Qt::AlignCenter);
-            imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
-            imageLabel->setScaledContents(true);
-            imageLabel->setMinimumSize(1, 1);
-            scrollArea->setWidget(imageLabel);
-            scrollArea->setWidgetResizable(false);
+        }
+
+        if (!loaded) {
+            // All render attempts failed — fall back to external viewer
+            delete scrollArea;
+            QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
+            statusBar()->showMessage(
+                "Opened externally (no native renderer): " + fi.fileName(), 4000);
+            return true;
         }
 
         int idx = m_tabWidget->addTab(scrollArea, fi.fileName());
