@@ -335,7 +335,6 @@ void MainWindow::createDockWidgets()
     m_bcPanelDock->setMinimumWidth(320);
     addDockWidget(Qt::RightDockWidgetArea, m_bcPanelDock);
 
-    // 3D Mesh Viewer dock (bottom)
     m_meshViewer = new MeshViewer();
     m_meshViewerDock = new QDockWidget("3D Mesh Viewer", this);
     m_meshViewerDock->setWidget(m_meshViewer);

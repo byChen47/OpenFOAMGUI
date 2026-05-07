@@ -2,36 +2,19 @@
 #include <QCoreApplication>
 #include <QSettings>
 #include <QIcon>
-#include <QDir>
 #include <QSurfaceFormat>
 #include "mainwindow.h"
 
 int main(int argc, char *argv[])
 {
-    // Ensure desktop OpenGL 3.3+ Compatibility profile
-    // (works with both modern shaders and legacy hardware)
-    QSurfaceFormat fmt;
+    // OpenGL 3.3 Compatibility Profile for 3D viewer shaders
+    qputenv("QT_OPENGL", "desktop");
+    QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
     fmt.setVersion(3, 3);
     fmt.setProfile(QSurfaceFormat::CompatibilityProfile);
     fmt.setDepthBufferSize(24);
     fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
     QSurfaceFormat::setDefaultFormat(fmt);
-
-    // Critical: Set plugin path BEFORE any Qt object is created
-    QString appDir = QCoreApplication::applicationDirPath();
-    qputenv("QT_QPA_PLATFORM_PLUGIN_PATH",
-            QDir::toNativeSeparators(appDir + "/platforms").toUtf8());
-    qputenv("QT_PLUGIN_PATH",
-            QDir::toNativeSeparators(appDir).toUtf8());
-
-    // Replace default library paths with our own
-    QStringList paths;
-    paths << appDir
-          << appDir + "/platforms"
-          << appDir + "/styles"
-          << appDir + "/imageformats"
-          << appDir + "/iconengines";
-    QCoreApplication::setLibraryPaths(paths);
 
     QApplication app(argc, argv);
     app.setApplicationName("OpenFOAM GUI");
