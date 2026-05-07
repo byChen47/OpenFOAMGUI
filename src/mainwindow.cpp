@@ -20,6 +20,7 @@
 
 #include <QApplication>
 #include <QFileDialog>
+#include <QTabBar>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QVBoxLayout>
@@ -62,6 +63,11 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onCloseTab);
     connect(m_tabWidget, &QTabWidget::currentChanged,
             this, &MainWindow::onTabChanged);
+
+    // Right-click context menu on tabs
+    m_tabWidget->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tabWidget->tabBar(), &QTabBar::customContextMenuRequested,
+            this, &MainWindow::onTabContextMenu);
 
     // Welcome screen — closable landing tab
     auto *welcomeLabel = new QLabel();
@@ -581,11 +587,9 @@ bool MainWindow::openFileInTab(const QString &filePath)
     FileLanguage lang = LanguageDetector::detect(filePath, content);
     editor->setLanguage(lang);
 
-    // Tab title: file name + language hint
+    // Tab title: file name only
     QFileInfo fi(filePath);
-    QString langSuffix = QString("  [%1]").arg(LanguageDetector::languageName(lang));
-    QString tabTitle = fi.fileName() + langSuffix;
-    m_tabWidget->addTab(editor, tabTitle);
+    m_tabWidget->addTab(editor, fi.fileName());
     m_tabWidget->setCurrentWidget(editor);
     m_tabWidget->setTabToolTip(m_tabWidget->currentIndex(), filePath);
 
@@ -730,6 +734,46 @@ bool MainWindow::saveEditor(CodeEditor *editor)
     editor->document()->setModified(false);
     statusBar()->showMessage("Saved: " + QFileInfo(editor->fileName()).fileName(), 3000);
     return true;
+}
+
+void MainWindow::onTabContextMenu(const QPoint &pos)
+{
+    int idx = m_tabWidget->tabBar()->tabAt(pos);
+    if (idx < 0) return;
+
+    // Don't show context menu on welcome tab
+    if (qobject_cast<QLabel*>(m_tabWidget->widget(idx))) return;
+
+    QMenu menu;
+
+    QAction *closeCurrent = menu.addAction("Close Current Tab");
+    closeCurrent->setShortcut(QKeySequence("Ctrl+W"));
+    connect(closeCurrent, &QAction::triggered, [this, idx]() { onCloseTab(idx); });
+
+    menu.addSeparator();
+
+    QAction *closeOthers = menu.addAction("Close Other Tabs");
+    connect(closeOthers, &QAction::triggered, [this, idx]() {
+        // Collect editor tabs except current (skip welcome QLabel tabs)
+        QVector<int> toClose;
+        for (int i = m_tabWidget->count() - 1; i >= 0; --i) {
+            if (i != idx && qobject_cast<CodeEditor*>(m_tabWidget->widget(i)))
+                toClose.append(i);
+        }
+        for (int i : toClose)
+            onCloseTab(i); // onCloseTab handles unsaved prompts
+    });
+
+    QAction *closeAll = menu.addAction("Close All Tabs");
+    connect(closeAll, &QAction::triggered, [this]() {
+        // Close all editor tabs from right to left
+        for (int i = m_tabWidget->count() - 1; i >= 0; --i) {
+            if (qobject_cast<CodeEditor*>(m_tabWidget->widget(i)))
+                onCloseTab(i);
+        }
+    });
+
+    menu.exec(m_tabWidget->tabBar()->mapToGlobal(pos));
 }
 
 void MainWindow::onCloseTab(int index)

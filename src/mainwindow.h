@@ -43,6 +43,7 @@ private slots:
     void onSaveFileAs();
     void onCloseTab(int index);
     void onTabChanged(int index);
+    void onTabContextMenu(const QPoint &pos);
     void onFindText();
     void onNewFile();
     void onNewFolder();
