@@ -3,12 +3,21 @@
 #include <QSettings>
 #include <QIcon>
 #include <QDir>
+#include <QSurfaceFormat>
 #include "mainwindow.h"
 
 int main(int argc, char *argv[])
 {
+    // Ensure desktop OpenGL 3.3+ Compatibility profile
+    // (works with both modern shaders and legacy hardware)
+    QSurfaceFormat fmt;
+    fmt.setVersion(3, 3);
+    fmt.setProfile(QSurfaceFormat::CompatibilityProfile);
+    fmt.setDepthBufferSize(24);
+    fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+    QSurfaceFormat::setDefaultFormat(fmt);
+
     // Critical: Set plugin path BEFORE any Qt object is created
-    // This is required for both Enigma Virtual Box and normal deployment
     QString appDir = QCoreApplication::applicationDirPath();
     qputenv("QT_QPA_PLATFORM_PLUGIN_PATH",
             QDir::toNativeSeparators(appDir + "/platforms").toUtf8());
