@@ -666,12 +666,12 @@ bool MainWindow::openFileInTab(const QString &filePath)
         }
 
         if (!loaded) {
-            // All render attempts failed — fall back to external viewer
+            // All render attempts failed — show error in status bar
             delete scrollArea;
-            QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
             statusBar()->showMessage(
-                "Opened externally (no native renderer): " + fi.fileName(), 4000);
-            return true;
+                "Cannot render image: " + fi.fileName()
+                + " (install Ghostscript for EPS support)", 6000);
+            return false;
         }
 
         int idx = m_tabWidget->addTab(scrollArea, fi.fileName());
@@ -682,7 +682,7 @@ bool MainWindow::openFileInTab(const QString &filePath)
     }
 
     // ════════════════════════════════════════════════════════
-    //  PDF / Office documents — open with system default app
+    //  PDF / Office documents — show info card with manual open button
     // ════════════════════════════════════════════════════════
     if (ext == "pdf" || ext == "doc" || ext == "docx"
         || ext == "xls" || ext == "xlsx" || ext == "ppt" || ext == "pptx") {
@@ -725,8 +725,8 @@ bool MainWindow::openFileInTab(const QString &filePath)
         layout->addWidget(openBtn, 0, Qt::AlignCenter);
 
         auto *hintLabel = new QLabel(
-            "You can also right-click this file in the Case Browser\n"
-            "and open it with an external program.");
+            "Tip: Right-click this file in the Case Browser\n"
+            "and choose \"Open With...\" to use another program.");
         hintLabel->setStyleSheet("color: #999; font-size: 11px;");
         hintLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(hintLabel);
@@ -735,10 +735,7 @@ bool MainWindow::openFileInTab(const QString &filePath)
         m_tabWidget->setCurrentWidget(infoWidget);
         m_tabWidget->setTabToolTip(idx, filePath);
 
-        // Auto-launch the external viewer
-        QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
-
-        statusBar()->showMessage("Opened externally: " + fi.fileName(), 3000);
+        statusBar()->showMessage("Opened: " + fi.fileName(), 3000);
         return true;
     }
 

@@ -8,6 +8,8 @@
 #include <QFileIconProvider>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QProcess>
+#include <QFileDialog>
 #include <functional>
 
 CaseBrowser::CaseBrowser(QWidget *parent)
@@ -464,6 +466,15 @@ void CaseBrowser::onCustomContextMenu(const QPoint &pos)
     if (type == "file") {
         QAction *openAct = menu.addAction("Open File");
         connect(openAct, &QAction::triggered, [this, path]() { emit fileSelected(path); });
+
+        QAction *openWithAct = menu.addAction("Open With...");
+        connect(openWithAct, &QAction::triggered, [this, path]() {
+            QString exe = QFileDialog::getOpenFileName(
+                this, "Choose a program to open this file",
+                "C:/Windows/System32", "Executables (*.exe);;All Files (*.*)");
+            if (!exe.isEmpty())
+                QProcess::startDetached(exe, {QDir::toNativeSeparators(path)});
+        });
     }
 
     if (!menu.isEmpty())

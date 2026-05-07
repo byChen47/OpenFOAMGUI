@@ -15,7 +15,9 @@ Open, browse, edit, and save OpenFOAM case files with syntax highlighting, case 
 - [snappyHexMesh Panel](#snappyhexmesh-panel)
 - [General Dict Panel](#general-dict-panel)
 - [Sync Boundaries](#sync-boundaries)
+- [File Viewer](#file-viewer)
 - [Editor & Case Browser](#editor--case-browser)
+- [ParaView Integration](#paraview-integration)
 - [Requirements](#requirements)
 - [Build](#build)
 - [Usage](#usage)
@@ -331,6 +333,34 @@ After execution, the status bar shows a summary:
 or
 
 > `All field files are already in sync.`
+
+---
+
+## File Viewer
+
+The application supports viewing multiple file formats directly in tabs, without relying on external programs for common formats.
+
+### Supported Formats
+
+| Category | Extensions | Viewer |
+|----------|-----------|--------|
+| **Raster Images** | PNG, JPG, JPEG, BMP, GIF, WebP, ICO | Scrollable native viewer via QPixmap |
+| **Vector Images** | SVG | QSvgWidget vector renderer |
+| **EPS / PostScript** | EPS, EPSF, PS | Ghostscript → PNG (auto-detect GS); QPixmap fallback |
+| **PDF Documents** | PDF | Info card with manual open button |
+| **Office Documents** | DOC, DOCX, XLS, XLSX, PPT, PPTX | Info card with manual open button |
+
+### EPS Rendering
+
+EPS files are rendered in-app using a three-tier pipeline:
+
+1. **QPixmap** — Qt may load EPS through an image format plugin
+2. **Ghostscript** — automatically detected at common install paths; converts to temporary PNG
+3. **Error message** — if no renderer is available, a status bar message suggests installing Ghostscript
+
+### Open With...
+
+Right-click any file in the **Case Browser** and choose **Open With...** to launch the file with an external program of your choice.
 
 ---
 
