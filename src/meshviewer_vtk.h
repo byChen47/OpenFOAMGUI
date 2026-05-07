@@ -3,13 +3,15 @@
 
 #include <QWidget>
 #include <QString>
-#include <QVector>
-#include <QVector3D>
 #include <QComboBox>
 #include <QPushButton>
 #include <QLabel>
+#include <QVector>
 
-class QQuickWidget;
+class QVTKOpenGLNativeWidget;
+class vtkGenericOpenGLRenderWindow;
+class vtkRenderer;
+class vtkActor;
 
 class MeshViewer : public QWidget
 {
@@ -33,7 +35,10 @@ public:
     void setViewRight();
     void setViewIsometric();
     void resetCamera();
+
     void setWireframe(bool enabled);
+    void setSurface(bool enabled);
+    void setSurfaceWithEdges(bool enabled);
 
 signals:
     void meshLoaded(const QString &filePath);
@@ -44,18 +49,25 @@ private slots:
 
 private:
     void setupUI();
-    void updateCameraView(const QString &view);
+    void setupVTKPipeline();
+    void addActor(vtkActor *actor);
+    void removeAllActors();
+    void setCameraPos(double x, double y, double z, double fx, double fy, double fz);
 
-    QQuickWidget *m_quickWidget;
-    QComboBox    *m_viewCombo;
-    QPushButton  *m_wireframeBtn;
-    QPushButton  *m_resetBtn;
-    QLabel       *m_infoLabel;
+    QVTKOpenGLNativeWidget      *m_vtkWidget;
+    vtkGenericOpenGLRenderWindow *m_renderWindow;
+    vtkRenderer                  *m_renderer;
+    QVector<vtkActor*>           m_actors;
 
-    QVector<QVector3D>     m_vertices;
-    QVector<QVector<uint>> m_faces;
-    bool                    m_wireframeMode = false;
-    QString                 m_currentFile;
+    QComboBox   *m_viewCombo;
+    QPushButton *m_wireframeBtn;
+    QPushButton *m_surfaceBtn;
+    QPushButton *m_surfaceEdgeBtn;
+    QPushButton *m_resetBtn;
+    QLabel      *m_infoLabel;
+
+    QString m_currentFile;
+    double  m_bounds[6];
 };
 
 #endif // MESHVIEWER_H
