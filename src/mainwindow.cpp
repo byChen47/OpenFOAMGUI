@@ -17,6 +17,10 @@
 #include <QFileDialog>
 #include <QRegularExpression>
 #include <QSet>
+#include <QScrollArea>
+#include <QSvgWidget>
+#include <QDesktopServices>
+#include <QUrl>
 
 #include <QApplication>
 #include <QFileDialog>
@@ -554,6 +558,120 @@ void MainWindow::onFileSelected(const QString &filePath)
 
 bool MainWindow::openFileInTab(const QString &filePath)
 {
+    QFileInfo fi(filePath);
+    QString ext = fi.suffix().toLower();
+
+    // ════════════════════════════════════════════════════════
+    //  Image files — display natively in a scrollable viewer
+    // ════════════════════════════════════════════════════════
+    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp"
+        || ext == "gif" || ext == "webp" || ext == "ico" || ext == "svg") {
+
+        // Check if already open
+        for (int i = 0; i < m_tabWidget->count(); ++i) {
+            if (m_tabWidget->tabToolTip(i) == filePath) {
+                m_tabWidget->setCurrentIndex(i);
+                return true;
+            }
+        }
+
+        auto *scrollArea = new QScrollArea();
+        scrollArea->setAlignment(Qt::AlignCenter);
+
+        if (ext == "svg") {
+            // SVG: use QSvgWidget for crisp vector rendering
+            auto *svgWidget = new QSvgWidget(filePath);
+            svgWidget->setMinimumSize(100, 100);
+            scrollArea->setWidget(svgWidget);
+        } else {
+            // Raster images: QLabel + QPixmap
+            QPixmap pixmap(filePath);
+            if (pixmap.isNull()) {
+                statusBar()->showMessage("Cannot load image: " + fi.fileName(), 4000);
+                return false;
+            }
+            auto *imageLabel = new QLabel();
+            imageLabel->setPixmap(pixmap);
+            imageLabel->setAlignment(Qt::AlignCenter);
+            imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+            imageLabel->setScaledContents(true);
+            imageLabel->setMinimumSize(1, 1);
+            scrollArea->setWidget(imageLabel);
+            scrollArea->setWidgetResizable(false);
+        }
+
+        int idx = m_tabWidget->addTab(scrollArea, fi.fileName());
+        m_tabWidget->setCurrentWidget(scrollArea);
+        m_tabWidget->setTabToolTip(idx, filePath);
+        statusBar()->showMessage("Opened: " + fi.fileName(), 3000);
+        return true;
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  PDF / Office documents — open with system default app
+    // ════════════════════════════════════════════════════════
+    if (ext == "pdf" || ext == "doc" || ext == "docx"
+        || ext == "xls" || ext == "xlsx" || ext == "ppt" || ext == "pptx") {
+
+        QString typeName;
+        if (ext == "pdf") typeName = "PDF";
+        else if (ext == "doc" || ext == "docx") typeName = "Word";
+        else if (ext == "xls" || ext == "xlsx") typeName = "Excel";
+        else typeName = "PowerPoint";
+
+        // Ask user: open externally or show info
+        auto *infoWidget = new QWidget();
+        auto *layout = new QVBoxLayout(infoWidget);
+        layout->setAlignment(Qt::AlignCenter);
+        layout->setSpacing(12);
+
+        auto *iconLabel = new QLabel("📄");
+        iconLabel->setStyleSheet("font-size: 64px;");
+        iconLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(iconLabel);
+
+        auto *infoLabel = new QLabel(
+            QString("<h3>%1</h3><p>%2 documents are opened with your system's "
+                    "default application.</p>")
+                .arg(fi.fileName(), typeName));
+        infoLabel->setWordWrap(true);
+        infoLabel->setAlignment(Qt::AlignCenter);
+        infoLabel->setStyleSheet("color: #333;");
+        layout->addWidget(infoLabel);
+
+        auto *openBtn = new QPushButton(
+            QString("Open with Default %1 Viewer").arg(typeName));
+        openBtn->setStyleSheet(
+            "QPushButton { padding: 10px 24px; background: #0078D7; color: white; "
+            "border: none; border-radius: 4px; font-size: 13px; font-weight: bold; }"
+            "QPushButton:hover { background: #005A9E; }");
+        connect(openBtn, &QPushButton::clicked, [this, filePath]() {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
+        });
+        layout->addWidget(openBtn, 0, Qt::AlignCenter);
+
+        auto *hintLabel = new QLabel(
+            "You can also right-click this file in the Case Browser\n"
+            "and open it with an external program.");
+        hintLabel->setStyleSheet("color: #999; font-size: 11px;");
+        hintLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(hintLabel);
+
+        int idx = m_tabWidget->addTab(infoWidget, fi.fileName());
+        m_tabWidget->setCurrentWidget(infoWidget);
+        m_tabWidget->setTabToolTip(idx, filePath);
+
+        // Auto-launch the external viewer
+        QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
+
+        statusBar()->showMessage("Opened externally: " + fi.fileName(), 3000);
+        return true;
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  Text files — use the code editor
+    // ════════════════════════════════════════════════════════
+
     // Check if already open
     CodeEditor *existing = editorForFile(filePath);
     if (existing) {
@@ -588,7 +706,6 @@ bool MainWindow::openFileInTab(const QString &filePath)
     editor->setLanguage(lang);
 
     // Tab title: file name only
-    QFileInfo fi(filePath);
     m_tabWidget->addTab(editor, fi.fileName());
     m_tabWidget->setCurrentWidget(editor);
     m_tabWidget->setTabToolTip(m_tabWidget->currentIndex(), filePath);
