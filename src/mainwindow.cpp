@@ -11,6 +11,7 @@
 
 #include <QProcess>
 #include <QDir>
+#include <QDirIterator>
 #include <QStandardPaths>
 #include <QFileInfo>
 #include <QInputDialog>
@@ -565,6 +566,7 @@ bool MainWindow::openFileInTab(const QString &filePath)
     //  Helper: locate Ghostscript (PATH, standard dirs, TeX Live)
     // ════════════════════════════════════════════════════════
     auto findGhostscript = []() -> QString {
+        // 1. Quick: check PATH and well-known locations
         QStringList paths = {
             "gswin64c", "gswin32c", "gs",
             "C:/Program Files/gs/gs10.04.0/bin/gswin64c.exe",
@@ -573,6 +575,7 @@ bool MainWindow::openFileInTab(const QString &filePath)
             "C:/Program Files/gs/gs9.56.1/bin/gswin64c.exe",
             "C:/Program Files/gs/gs9.55.0/bin/gswin64c.exe",
         };
+        // Standard TeX Live paths
         for (const auto &drive : {"C:", "D:", "E:"}) {
             for (int y = 2020; y <= 2027; ++y)
                 paths.append(QString("%1/texlive/%2/tlpkg/tlgs/bin/gswin64c.exe").arg(drive).arg(y));
@@ -580,6 +583,26 @@ bool MainWindow::openFileInTab(const QString &filePath)
         for (const auto &p : paths) {
             if (QFileInfo::exists(p)) return p;
         }
+        // 2. Slow: recursive search under common LaTeX install dirs
+        QStringList searchRoots;
+        for (const auto &drive : {"C:/", "D:/", "E:/"}) {
+            QDir root(drive);
+            auto dirs = root.entryList({"*tex*", "*latex*", "*LaTex*", "*TeX*", "*texlive*"},
+                                       QDir::Dirs | QDir::NoDotAndDotDot);
+            for (const auto &d : dirs)
+                searchRoots.append(drive + d);
+        }
+        for (const auto &root : searchRoots) {
+            QDirIterator it(root, {"gswin64c.exe"}, QDir::Files,
+                            QDirIterator::Subdirectories);
+            while (it.hasNext()) {
+                it.next();
+                QString candidate = it.filePath();
+                if (candidate.contains("tlgs") || candidate.contains("ghostscript"))
+                    return candidate;
+            }
+        }
+        // 3. PATH fallback
         QString f = QStandardPaths::findExecutable("gswin64c");
         if (!f.isEmpty()) return f;
         return QStandardPaths::findExecutable("gs");
@@ -649,7 +672,8 @@ bool MainWindow::openFileInTab(const QString &filePath)
         if (!loaded) {
             delete scrollArea;
             statusBar()->showMessage(
-                "Cannot render: " + fi.fileName(), 5000);
+                "Cannot render: " + fi.fileName()
+                + " (Ghostscript not found for EPS)", 6000);
             return false;
         }
 
@@ -814,22 +838,79 @@ bool MainWindow::openFileInTab(const QString &filePath)
                     text = pars.join("\n");
                 }
             } else if (ext == "xlsx") {
+                // Load shared strings
                 QStringList shared;
                 QFile ssF(tmpDir + "/xl/sharedStrings.xml");
                 if (ssF.open(QFile::ReadOnly|QFile::Text)) {
                     QString xml = QString::fromUtf8(ssF.readAll()); ssF.close();
-                    QRegularExpression tRe(R"(<t[^>]*>([^<]*)</t>)");
-                    auto ti = tRe.globalMatch(xml);
-                    while (ti.hasNext()) shared.append(ti.next().captured(1));
+                    QRegularExpression siRe(R"(<si>(.*?)</si>)", QRegularExpression::DotMatchesEverythingOption);
+                    auto siIt = siRe.globalMatch(xml);
+                    while (siIt.hasNext()) {
+                        auto sm = siIt.next();
+                        QString siText;
+                        QRegularExpression tRe(R"(<t[^>]*>([^<]*)</t>)");
+                        auto ti = tRe.globalMatch(sm.captured(1));
+                        while (ti.hasNext()) siText += ti.next().captured(1);
+                        shared.append(siText);
+                    }
                 }
-                QFile shF(tmpDir + "/xl/worksheets/sheet1.xml");
-                if (shF.open(QFile::ReadOnly|QFile::Text)) {
+
+                // Process all worksheets
+                QDir wsDir(tmpDir + "/xl/worksheets");
+                auto wsFiles = wsDir.entryInfoList({"sheet*.xml"}, QDir::Files, QDir::Name);
+                for (const auto &wsFi : wsFiles) {
+                    QFile shF(wsFi.absoluteFilePath());
+                    if (!shF.open(QFile::ReadOnly|QFile::Text)) continue;
                     QString xml = QString::fromUtf8(shF.readAll()); shF.close();
-                    QRegularExpression cRe(R"(<c[^>]*t="s"[^>]*><v>(\d+)</v></c>)");
-                    auto ci = cRe.globalMatch(xml);
-                    QStringList rows;
-                    while (ci.hasNext()) { auto cm = ci.next(); int idx = cm.captured(1).toInt(); if (idx<shared.size()) rows.append(shared[idx]); }
-                    text = rows.join("\t\n");
+
+                    if (!text.isEmpty()) text += "\n\n";
+                    text += "═══ " + wsFi.completeBaseName() + " ═══\n";
+
+                    // Parse each row
+                    QRegularExpression rowRe(R"(<row[^>]*>(.*?)</row>)", QRegularExpression::DotMatchesEverythingOption);
+                    auto rowIt = rowRe.globalMatch(xml);
+                    while (rowIt.hasNext()) {
+                        auto rm = rowIt.next();
+                        QStringList cells;
+                        // Parse each cell: handle shared-string, number, inline, boolean, and formula
+                        QRegularExpression cellRe(
+                            R"re(<c[^>]*?(?:\s+t="(\w+)")?[^>]*>(.*?)</c>)re",
+                            QRegularExpression::DotMatchesEverythingOption);
+                        auto cellIt = cellRe.globalMatch(rm.captured(1));
+                        while (cellIt.hasNext()) {
+                            auto cm = cellIt.next();
+                            QString ctype = cm.captured(1); // "s", "b", "inlineStr", "str", or empty
+                            QString inner = cm.captured(2);
+
+                            QString val;
+                            if (ctype == "s") {
+                                // Shared string index
+                                QRegularExpression vRe(R"(<v>(\d+)</v>)");
+                                auto vm = vRe.match(inner);
+                                if (vm.hasMatch()) {
+                                    int idx = vm.captured(1).toInt();
+                                    if (idx < shared.size()) val = shared[idx];
+                                    else val = "?";
+                                }
+                            } else if (ctype == "inlineStr") {
+                                QRegularExpression isRe(R"(<t[^>]*>([^<]*)</t>)");
+                                auto ism = isRe.match(inner);
+                                if (ism.hasMatch()) val = ism.captured(1);
+                            } else if (ctype == "b") {
+                                QRegularExpression vRe(R"(<v>(\d+)</v>)");
+                                auto vm = vRe.match(inner);
+                                val = (vm.hasMatch() && vm.captured(1) == "1") ? "TRUE" : "FALSE";
+                            } else {
+                                // Number or formula result
+                                QRegularExpression vRe(R"(<v>([^<]*)</v>)");
+                                auto vm = vRe.match(inner);
+                                if (vm.hasMatch()) val = vm.captured(1);
+                            }
+                            cells.append(val);
+                        }
+                        if (!cells.isEmpty())
+                            text += cells.join("\t") + "\n";
+                    }
                 }
             } else {
                 QDir slidesDir(tmpDir + "/ppt/slides");
