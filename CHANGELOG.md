@@ -149,6 +149,31 @@ Exit     Ctrl+Q                   ────────────
 
 ---
 
+### 图片、PDF 和 Office 文档查看支持
+
+**功能**：在算例浏览器中双击图片、PDF、Word、Excel 文件时，以适当的方式查看。
+
+**文件类型处理策略**（`src/mainwindow.cpp` — `openFileInTab`）：
+
+| 文件类型 | 扩展名 | 查看方式 |
+|---------|--------|---------|
+| **光栅图片** | PNG, JPG, JPEG, BMP, GIF, WebP, ICO | QScrollArea + QLabel(QPixmap) 原生显示 |
+| **矢量图片** | SVG | QSvgWidget 矢量渲染 |
+| **PDF** | PDF | 自动用系统默认程序打开；标签页显示信息卡片 + 手动打开按钮 |
+| **Word** | DOC, DOCX | 自动用系统默认程序打开 |
+| **Excel** | XLS, XLSX | 自动用系统默认程序打开 |
+| **PowerPoint** | PPT, PPTX | 自动用系统默认程序打开 |
+
+**技术细节**：
+- SVG 支持需要 Qt6SvgWidgets 模块（`QT += svgwidgets`）
+- QtPdf 模块未安装，PDF 通过 `QDesktopServices::openUrl` 调用系统关联程序
+- 图片标签页不触发编辑器操作（Save、Undo 等，`currentEditor()` 返回 nullptr）
+- 关闭图片/文档标签页时不弹出未保存提示
+
+**项目文件变更**：`OpenFOAMGUI.pro` 新增 `svgwidgets` 模块。
+
+---
+
 ### 编译环境
 
 | 工具 | 版本 | 路径 |
