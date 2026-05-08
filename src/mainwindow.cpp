@@ -18,6 +18,7 @@
 #include <QFileDialog>
 #include <QRegularExpression>
 #include <QSet>
+#include <QPainter>
 #include <QDesktopServices>
 #include <QUrl>
 
@@ -92,6 +93,24 @@ MainWindow::~MainWindow()
 // ────────────────────────────────────────────────────────────────────
 // Actions
 // ────────────────────────────────────────────────────────────────────
+
+// Helper: create a clean custom icon with a colored background + letter
+static QIcon makeIcon(const QColor &bg, const QString &letter, const QColor &fg = Qt::white)
+{
+    QPixmap pm(24, 24);
+    pm.fill(Qt::transparent);
+    QPainter painter(&pm);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setBrush(bg);
+    painter.setPen(Qt::NoPen);
+    painter.drawRoundedRect(1, 1, 22, 22, 4, 4);
+    painter.setPen(fg);
+    QFont f("Segoe UI", 11, QFont::Bold);
+    painter.setFont(f);
+    painter.drawText(QRect(0, 0, 24, 24), Qt::AlignCenter, letter);
+    painter.end();
+    return QIcon(pm);
+}
 
 void MainWindow::createActions()
 {
@@ -169,7 +188,7 @@ void MainWindow::createActions()
                                     "Clean &Time Dirs", this);
     m_cleanTimeAction->setStatusTip("Delete all time directories except 0/ from all opened cases");
 
-    m_paraviewAction = new QAction(s->standardIcon(QStyle::SP_DesktopIcon),
+    m_paraviewAction = new QAction(makeIcon(QColor("#1A73E8"), "PV"),
                                     "&ParaView", this);
     m_paraviewAction->setStatusTip("Open the current case in ParaView for post-processing");
 
@@ -191,17 +210,17 @@ void MainWindow::createActions()
     m_bcPanelAction->setCheckable(true);
     m_bcPanelAction->setChecked(true);
 
-    m_pythonAction = new QAction(s->standardIcon(QStyle::SP_FileDialogContentsView),
+    m_pythonAction = new QAction(makeIcon(QColor("#3776AB"), "Py"),
                                  "Run &Python", this);
     m_pythonAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
     m_pythonAction->setStatusTip("Run the current Python file with system Python");
 
-    m_terminalAction = new QAction(s->standardIcon(QStyle::SP_CommandLink),
+    m_terminalAction = new QAction(makeIcon(QColor("#444444"), ">_"),
                                    "&Terminal", this);
     m_terminalAction->setShortcut(QKeySequence("Ctrl+`"));
     m_terminalAction->setStatusTip("Open system terminal in the current directory");
 
-    m_syncBoundariesAction = new QAction(s->standardIcon(QStyle::SP_DriveNetIcon),
+    m_syncBoundariesAction = new QAction(makeIcon(QColor("#D73A0F"), "⇄"),
                                          "Sync &Boundaries", this);
     m_syncBoundariesAction->setStatusTip("Sync blockMeshDict boundary names to all 0/ field files boundaryField");
 
