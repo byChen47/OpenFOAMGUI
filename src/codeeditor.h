@@ -8,6 +8,7 @@
 
 class LineNumberArea;
 class OFHighlighter;
+class QCompleter;
 
 class CodeEditor : public QPlainTextEdit
 {
@@ -29,23 +30,31 @@ public:
     bool maybeSave();
 
     void toggleComment();
+    void setAutoCompletion(bool enabled);
 
 signals:
     void fileSaved(const QString &path);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
+    void keyPressEvent(QKeyEvent *e) override;
 
 private slots:
     void updateLineNumberAreaWidth(int newBlockCount);
     void updateLineNumberArea(const QRect &rect, int dy);
     void highlightCurrentLine();
+    void insertCompletion(const QString &text);
 
 private:
+    void setupCompleter();
+    QString wordUnderCursor() const;
+
     QWidget *m_lineNumberArea;
     OFHighlighter *m_highlighter;
+    QCompleter *m_completer = nullptr;
     QString m_filePath;
     FileLanguage m_language = FileLanguage::Unknown;
+    bool m_autoComplete = true;
 };
 
 #endif // CODEEDITOR_H

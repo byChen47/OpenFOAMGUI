@@ -143,6 +143,11 @@ void MainWindow::createActions()
     m_commentAction->setShortcut(QKeySequence("Ctrl+/"));
     m_commentAction->setStatusTip("Toggle line comments (// or # based on file language)");
 
+    m_autoCompleteAction = new QAction("&Auto Completion", this);
+    m_autoCompleteAction->setCheckable(true);
+    m_autoCompleteAction->setChecked(true);
+    m_autoCompleteAction->setStatusTip("Enable/disable code auto-completion");
+
     m_newFileAction = new QAction(s->standardIcon(QStyle::SP_FileIcon),
                                   "New &File", this);
     m_newFileAction->setShortcut(QKeySequence("Ctrl+N"));
@@ -226,6 +231,8 @@ void MainWindow::createMenus()
     m_editMenu->addSeparator();
     m_editMenu->addAction(m_findAction);
     m_editMenu->addAction(m_commentAction);
+    m_editMenu->addSeparator();
+    m_editMenu->addAction(m_autoCompleteAction);
 
     // View menu
     m_viewMenu = menuBar()->addMenu("&View");
@@ -382,6 +389,12 @@ void MainWindow::setupConnections()
     connect(m_commentAction, &QAction::triggered, [this]() {
         if (auto *e = currentEditor()) e->toggleComment();
         else statusBar()->showMessage("No file is open to comment.", 3000);
+    });
+    connect(m_autoCompleteAction, &QAction::toggled, [this](bool on) {
+        for (int i = 0; i < m_tabWidget->count(); ++i) {
+            if (auto *e = qobject_cast<CodeEditor*>(m_tabWidget->widget(i)))
+                e->setAutoCompletion(on);
+        }
     });
     connect(m_newFileAction, &QAction::triggered, this, &MainWindow::onNewFile);
     connect(m_newFolderAction, &QAction::triggered, this, &MainWindow::onNewFolder);
@@ -1318,11 +1331,50 @@ void MainWindow::onRunPython()
         result = "(no output)";
     result += QString("\n\nExit code: %1").arg(exitCode);
 
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("Python Output");
-    msgBox.setText(result);
-    msgBox.setDetailedText(result);
-    msgBox.exec();
+    // Nice resizable output dialog
+    QDialog dlg(this);
+    dlg.setWindowTitle(exitCode == 0 ? "Python Output" : "Python Error");
+    dlg.resize(700, 500);
+    dlg.setMinimumSize(400, 300);
+
+    auto *dl = new QVBoxLayout(&dlg);
+    dl->setContentsMargins(12, 12, 12, 12);
+    dl->setSpacing(8);
+
+    auto *hdr = new QLabel(exitCode == 0 ? "✓  Script completed successfully" : "✗  Script exited with errors");
+    hdr->setStyleSheet(exitCode == 0
+        ? "font-size: 14px; font-weight: bold; color: #388E3C;"
+        : "font-size: 14px; font-weight: bold; color: #D32F2F;");
+    dl->addWidget(hdr);
+
+    auto *te = new QTextEdit();
+    te->setReadOnly(true);
+    te->setFont(QFont("Consolas", 10));
+    te->setStyleSheet(
+        "QTextEdit { background: #1E1E1E; color: #DCDCDC; border: 1px solid #333; "
+        "border-radius: 4px; padding: 8px; }"
+        "QScrollBar:vertical { background: #2D2D2D; width: 10px; }"
+        "QScrollBar::handle:vertical { background: #555; border-radius: 5px; }");
+    te->setPlainText(result.trimmed().isEmpty() ? "(no output)" : result);
+    dl->addWidget(te, 1);
+
+    auto *footer = new QHBoxLayout();
+    auto *infoLbl = new QLabel(QString("Script: %1   |   Exit code: %2")
+        .arg(QFileInfo(scriptPath).fileName()).arg(exitCode));
+    infoLbl->setStyleSheet("color: #888; font-size: 11px;");
+    footer->addWidget(infoLbl);
+    footer->addStretch();
+    auto *closeBtn = new QPushButton("Close");
+    closeBtn->setFixedWidth(80);
+    closeBtn->setStyleSheet(
+        "QPushButton { padding: 6px 16px; background: #0078D7; color: white; "
+        "border: none; border-radius: 3px; }"
+        "QPushButton:hover { background: #005A9E; }");
+    connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    footer->addWidget(closeBtn);
+    dl->addLayout(footer);
+
+    dlg.exec();
 
     statusBar()->showMessage(
         QString("Python exit code: %1").arg(exitCode), 5000);

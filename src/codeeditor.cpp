@@ -10,7 +10,67 @@
 #include <QFileInfo>
 #include <QFont>
 #include <QRegularExpression>
+#include <QCompleter>
+#include <QAbstractItemView>
+#include <QScrollBar>
+#include <QKeyEvent>
+#include <QStringListModel>
 
+// ── Keyword sets ────────────────────────────────────────────────
+static QStringList cppKeywords() { return {
+    "class","struct","enum","union","namespace","using","typedef",
+    "template","typename","const","constexpr","static","extern","inline","virtual","override","final",
+    "public","private","protected","friend",
+    "if","else","switch","case","default","break","continue","return","goto",
+    "for","while","do","try","catch","throw",
+    "new","delete","sizeof","typeid","dynamic_cast","static_cast","const_cast","reinterpret_cast",
+    "void","bool","char","short","int","long","float","double","auto","decltype","nullptr","true","false",
+    "include","define","ifdef","ifndef","endif","pragma","error","undef",
+    "volVectorField","volScalarField","volTensorField","volSymmTensorField",
+    "surfaceScalarField","surfaceVectorField","surfaceTensorField",
+    "pointScalarField","pointVectorField","pointTensorField",
+    "dimensionedScalar","dimensionedVector","dimensionedTensor",
+    "IOdictionary","IOobject","IOField","autoPtr","tmp","PtrList",
+    "fvMesh","polyMesh","fvPatch","polyPatch","fvPatchField","fvsPatchField",
+    "Foam","runTime","mesh","time","argList","Info","Warning","FatalError",
+};}
+
+static QStringList pyKeywords() { return {
+    "False","None","True","and","as","assert","async","await","break",
+    "class","continue","def","del","elif","else","except","finally",
+    "for","from","global","if","import","in","is","lambda","nonlocal",
+    "not","or","pass","raise","return","try","while","with","yield",
+    "self","cls","__init__","__name__","__main__","__file__",
+    "print","range","len","list","dict","set","tuple","str","int","float","bool",
+    "open","read","write","append","close","with",
+    "import","from","numpy","matplotlib","pandas",
+    "def","return","if","else","elif","for","while","break","continue",
+};}
+
+static QStringList ofKeywords() { return {
+    "boundaryField","internalField","dimensions","uniform","nonuniform",
+    "type","value","gradient","refValue","refGradient","valueFraction",
+    "inletValue","freestreamValue","flowRate","massFlowRate",
+    "fixedValue","zeroGradient","fixedGradient","mixed","calculated",
+    "noSlip","slip","partialSlip","movingWallVelocity","rotatingWallVelocity",
+    "inletOutlet","outletInlet","advective","waveTransmissive",
+    "totalPressure","fixedFluxPressure","fixedMean","fanPressure",
+    "kqRWallFunction","epsilonWallFunction","omegaWallFunction","nutkWallFunction",
+    "empty","symmetry","wedge","cyclic","processor","patch","wall",
+    "ddtSchemes","gradSchemes","divSchemes","laplacianSchemes",
+    "interpolationSchemes","snGradSchemes","fluxRequired",
+    "Euler","backward","steadyState","CrankNicolson","localEuler",
+    "Gauss","linear","leastSquares","corrected","orthogonal","limited",
+    "limitedLinear","linearUpwind","upwind","vanLeer","QUICK","midPoint",
+    "solvers","relaxationFactors","PIMPLE","SIMPLE",
+    "residualControl","nOuterCorrectors","nCorrectors","momentumPredictor",
+    "convertToMeters","vertices","blocks","edges","boundary",
+    "startFrom","startTime","stopAt","endTime","deltaT",
+    "writeControl","writeInterval","purgeWrite","writeFormat","writePrecision",
+    "numberOfSubdomains","method","simple","hierarchical","scotch","metis",
+};}
+
+// ── Constructor ─────────────────────────────────────────────────
 CodeEditor::CodeEditor(QWidget *parent)
     : QPlainTextEdit(parent)
 {
@@ -20,7 +80,7 @@ CodeEditor::CodeEditor(QWidget *parent)
     QFont font("Consolas", 11);
     font.setStyleHint(QFont::Monospace);
     setFont(font);
-    setTabStopDistance(40);  // 4 spaces width
+    setTabStopDistance(40);
 
     setLineWrapMode(QPlainTextEdit::NoWrap);
 
@@ -31,8 +91,111 @@ CodeEditor::CodeEditor(QWidget *parent)
     connect(this, &QPlainTextEdit::cursorPositionChanged,
             this, &CodeEditor::highlightCurrentLine);
 
+    setupCompleter();
+
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
+}
+
+// ── Auto-completion ─────────────────────────────────────────────
+void CodeEditor::setupCompleter()
+{
+    m_completer = new QCompleter(this);
+    m_completer->setWidget(this);
+    m_completer->setCompletionMode(QCompleter::PopupCompletion);
+    m_completer->setCaseSensitivity(Qt::CaseInsensitive);
+    m_completer->setFilterMode(Qt::MatchContains);
+    m_completer->setMaxVisibleItems(10);
+    m_completer->popup()->setStyleSheet(
+        "QAbstractItemView { font-family: Consolas; font-size: 12px; "
+        "padding: 2px; border: 1px solid #aaa; background: white; }"
+        "QAbstractItemView::item { padding: 3px 8px; }"
+        "QAbstractItemView::item:selected { background: #0078D7; color: white; }");
+
+    connect(m_completer, QOverload<const QString &>::of(&QCompleter::activated),
+            this, &CodeEditor::insertCompletion);
+}
+
+void CodeEditor::setAutoCompletion(bool enabled)
+{
+    m_autoComplete = enabled;
+    if (!enabled)
+        m_completer->popup()->hide();
+}
+
+QString CodeEditor::wordUnderCursor() const
+{
+    QTextCursor tc = textCursor();
+    tc.select(QTextCursor::WordUnderCursor);
+    return tc.selectedText();
+}
+
+void CodeEditor::insertCompletion(const QString &text)
+{
+    QTextCursor tc = textCursor();
+    int extra = text.length() - m_completer->completionPrefix().length();
+    tc.movePosition(QTextCursor::Left);
+    tc.movePosition(QTextCursor::EndOfWord);
+    tc.insertText(text.right(extra));
+    setTextCursor(tc);
+}
+
+void CodeEditor::keyPressEvent(QKeyEvent *e)
+{
+    // Let completer handle its own keys
+    if (m_completer && m_completer->popup()->isVisible()) {
+        switch (e->key()) {
+        case Qt::Key_Enter:
+        case Qt::Key_Return:
+        case Qt::Key_Tab:
+        case Qt::Key_Escape:
+            e->ignore();
+            return;
+        default:
+            break;
+        }
+    }
+
+    QPlainTextEdit::keyPressEvent(e);
+
+    if (!m_autoComplete || !m_completer) return;
+
+    QString prefix = wordUnderCursor();
+    if (prefix.length() < 2) {
+        m_completer->popup()->hide();
+        return;
+    }
+
+    // Build keyword list based on language
+    if (m_completer->completionPrefix() != prefix) {
+        QStringList words;
+        switch (m_language) {
+        case FileLanguage::Python:
+            words = pyKeywords(); break;
+        case FileLanguage::Cpp:
+        case FileLanguage::CppHeader:
+        case FileLanguage::C:
+        case FileLanguage::OpenFOAM:
+        case FileLanguage::CMake:
+            words = cppKeywords() + ofKeywords(); break;
+        default:
+            words = ofKeywords() + cppKeywords(); break;
+        }
+        words.removeDuplicates();
+        m_completer->setModel(new QStringListModel(words, m_completer));
+        m_completer->setCompletionPrefix(prefix);
+    } else {
+        m_completer->setCompletionPrefix(prefix);
+    }
+
+    if (m_completer->completionCount() > 0) {
+        QRect cr = cursorRect();
+        cr.setWidth(m_completer->popup()->sizeHintForColumn(0)
+                     + m_completer->popup()->verticalScrollBar()->sizeHint().width() + 4);
+        m_completer->complete(cr);
+    } else {
+        m_completer->popup()->hide();
+    }
 }
 
 void CodeEditor::setLanguage(FileLanguage lang)

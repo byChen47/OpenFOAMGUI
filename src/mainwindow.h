@@ -121,6 +121,7 @@ private:
     QAction *m_redoAction;
     QAction *m_findAction;
     QAction *m_commentAction;
+    QAction *m_autoCompleteAction;
     QAction *m_newFileAction;
     QAction *m_newFolderAction;
     QAction *m_deleteAction;
