@@ -77,7 +77,7 @@ private:
     void updateWindowTitle();
     void updateStatusBarForEditor(CodeEditor *editor);
     bool saveEditor(CodeEditor *editor);
-    int syncBoundariesForCase(const QString &casePath);
+    int syncBoundariesForCase(const QString &casePath, QStringList *updatedFiles = nullptr);
 
     // Main widgets
     CaseBrowser      *m_caseBrowser;

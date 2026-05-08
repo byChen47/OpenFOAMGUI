@@ -1043,8 +1043,28 @@ void MainWindow::onSyncBoundaries()
     }
 
     int totalUpdated = 0;
+    QStringList updatedFiles;
     for (const auto &casePath : cases)
-        totalUpdated += syncBoundariesForCase(casePath);
+        totalUpdated += syncBoundariesForCase(casePath, &updatedFiles);
+
+    // Reload synced files that are currently open in editor tabs
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        auto *editor = qobject_cast<CodeEditor*>(m_tabWidget->widget(i));
+        if (!editor || editor->fileName().isEmpty()) continue;
+
+        QString canonicalEditor = QFileInfo(editor->fileName()).canonicalFilePath();
+        for (const auto &f : updatedFiles) {
+            if (QFileInfo(f).canonicalFilePath() == canonicalEditor) {
+                QFile file(editor->fileName());
+                if (file.open(QFile::ReadOnly | QFile::Text)) {
+                    editor->setPlainText(QString::fromUtf8(file.readAll()));
+                    file.close();
+                    editor->document()->setModified(false);
+                }
+                break;
+            }
+        }
+    }
 
     m_caseBrowser->refresh();
     statusBar()->showMessage(
@@ -1052,7 +1072,7 @@ void MainWindow::onSyncBoundaries()
             .arg(totalUpdated).arg(cases.size()), 5000);
 }
 
-int MainWindow::syncBoundariesForCase(const QString &casePath)
+int MainWindow::syncBoundariesForCase(const QString &casePath, QStringList *updatedFiles)
 {
     // ── 1. Find blockMeshDict ──
     QString bmdPath;
@@ -1246,6 +1266,8 @@ int MainWindow::syncBoundariesForCase(const QString &casePath)
             out << content;
             fieldFile.close();
             updatedCount++;
+            if (updatedFiles)
+                updatedFiles->append(fi.absoluteFilePath());
         }
     }
 
