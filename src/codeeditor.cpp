@@ -18,14 +18,55 @@
 
 // ── Keyword sets ────────────────────────────────────────────────
 static QStringList cppKeywords() { return {
+    // ── C++ Language keywords ──
     "class","struct","enum","union","namespace","using","typedef",
-    "template","typename","const","constexpr","static","extern","inline","virtual","override","final",
-    "public","private","protected","friend",
+    "template","typename","const","constexpr","consteval","constinit",
+    "static","extern","inline","virtual","override","final","explicit",
+    "public","private","protected","friend","mutable","volatile",
     "if","else","switch","case","default","break","continue","return","goto",
-    "for","while","do","try","catch","throw",
-    "new","delete","sizeof","typeid","dynamic_cast","static_cast","const_cast","reinterpret_cast",
-    "void","bool","char","short","int","long","float","double","auto","decltype","nullptr","true","false",
+    "for","while","do","try","catch","throw","noexcept","co_await","co_return","co_yield",
+    "new","delete","sizeof","typeid","alignof","alignas","thread_local",
+    "dynamic_cast","static_cast","const_cast","reinterpret_cast",
+    "void","bool","char","short","int","long","float","double","auto","decltype",
+    "nullptr","true","false","this","operator","sizeof","requires","concept",
     "include","define","ifdef","ifndef","endif","pragma","error","undef",
+    "signed","unsigned","wchar_t","char8_t","char16_t","char32_t",
+    "and","or","not","xor","bitand","bitor","compl","and_eq","or_eq","xor_eq","not_eq",
+    // ── STL Containers ──
+    "std","vector","deque","list","forward_list","set","multiset","map","multimap",
+    "unordered_set","unordered_multiset","unordered_map","unordered_multimap",
+    "stack","queue","priority_queue","array","span","bitset","valarray",
+    "pair","tuple","optional","variant","any","string","string_view","wstring",
+    "u16string","u32string","basic_string","initializer_list",
+    // ── STL Iterators & Algorithms ──
+    "iterator","const_iterator","reverse_iterator","begin","end","cbegin","cend",
+    "rbegin","rend","crbegin","crend","size","empty","clear","insert","emplace",
+    "emplace_back","push_back","push_front","pop_back","pop_front","front","back","at",
+    "find","find_if","count","count_if","sort","stable_sort","transform","copy",
+    "copy_if","remove","remove_if","replace","replace_if","reverse","rotate",
+    "unique","lower_bound","upper_bound","binary_search","equal_range",
+    "for_each","accumulate","min","max","minmax","swap","move","forward",
+    "all_of","any_of","none_of","partition","merge","shuffle","sample",
+    // ── STL Stream I/O ──
+    "iostream","fstream","sstream","stringstream","ifstream","ofstream",
+    "cin","cout","cerr","clog","endl","flush","getline","read","write",
+    "ios","ios_base","streambuf","filebuf","stringbuf",
+    // ── Smart Pointers & Memory ──
+    "unique_ptr","shared_ptr","weak_ptr","make_unique","make_shared",
+    "allocator","enable_shared_from_this","scoped_lock","lock_guard",
+    // ── Utilities ──
+    "chrono","thread","mutex","condition_variable","future","promise","async",
+    "atomic","functional","bind","function","mem_fn","reference_wrapper",
+    "type_traits","is_same","is_base_of","enable_if","conditional",
+    "ratio","random","numeric_limits","clamp","exchange",
+    "filesystem","path","directory_iterator","recursive_directory_iterator",
+    "format","print","println","expected",
+    // ── C Standard Library ──
+    "printf","scanf","fprintf","sprintf","fopen","fclose","fread","fwrite",
+    "malloc","calloc","realloc","free","memcpy","memmove","memset","memcmp",
+    "strlen","strcpy","strcmp","strcat","sprintf_s","strcpy_s",
+    "assert","errno","perror","exit","abort","atexit",
+    // ── OpenFOAM specific (keep in cpp list for C++ mode) ──
     "volVectorField","volScalarField","volTensorField","volSymmTensorField",
     "surfaceScalarField","surfaceVectorField","surfaceTensorField",
     "pointScalarField","pointVectorField","pointTensorField",
@@ -33,6 +74,8 @@ static QStringList cppKeywords() { return {
     "IOdictionary","IOobject","IOField","autoPtr","tmp","PtrList",
     "fvMesh","polyMesh","fvPatch","polyPatch","fvPatchField","fvsPatchField",
     "Foam","runTime","mesh","time","argList","Info","Warning","FatalError",
+    "OStringStream","IStringStream","HashTable","UList","Field","List",
+    "word","token","dictionary","entry","regExp","fileName",
 };}
 
 static QStringList pyKeywords() { return {
@@ -249,6 +292,32 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
         default:
             break;
         }
+    }
+
+    // ── Auto-indent on Enter ──
+    if ((e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter)
+        && e->modifiers() == Qt::NoModifier) {
+        QTextCursor cursor = textCursor();
+        cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
+        QString lineText = cursor.selectedText();
+
+        // Get leading whitespace
+        int indent = 0;
+        while (indent < lineText.length() && (lineText[indent] == ' ' || lineText[indent] == '\t'))
+            indent++;
+        QString ws = lineText.left(indent);
+
+        // Increase indent if line ends with {
+        QString trimmed = lineText.trimmed();
+        if (trimmed.endsWith('{') || trimmed.endsWith(':'))
+            ws += "    "; // 4-space indent
+
+        cursor.clearSelection();
+        cursor.movePosition(QTextCursor::EndOfBlock);
+        setTextCursor(cursor);
+        cursor.insertText("\n" + ws);
+        setTextCursor(cursor);
+        return;
     }
 
     QPlainTextEdit::keyPressEvent(e);
