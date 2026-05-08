@@ -223,6 +223,9 @@ void MainWindow::createMenus()
     m_fileMenu->addAction(m_saveAsAction);
     m_fileMenu->addAction(m_saveAllAction);
     m_fileMenu->addSeparator();
+    m_fileMenu->addAction(m_newFileAction);
+    m_fileMenu->addAction(m_newFolderAction);
+    m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_closeTabAction);
     m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_exitAction);
@@ -240,17 +243,28 @@ void MainWindow::createMenus()
     // View menu
     m_viewMenu = menuBar()->addMenu("&View");
     // Toolbar visibility toggles
-    auto addViewToggle = [&](const QString &name, QAction *target) {
+    auto addViewToggle = [&](const QString &name, QAction *target, bool shown) {
         auto *act = m_viewMenu->addAction(name);
         act->setCheckable(true);
-        act->setChecked(true);
-        connect(act, &QAction::toggled, [target](bool on) { target->setVisible(on); });
+        act->setChecked(shown);
+        if (!shown) {
+            // Not in toolbar yet — add/remove on toggle
+            connect(act, &QAction::toggled, [this, target](bool on) {
+                if (on) m_mainToolBar->addAction(target);
+                else    m_mainToolBar->removeAction(target);
+            });
+        } else {
+            // Already in toolbar — just show/hide
+            connect(act, &QAction::toggled, [target](bool on) { target->setVisible(on); });
+        }
     };
-    addViewToggle("Show BC Panel",         m_bcPanelAction);
-    addViewToggle("Show Terminal",         m_terminalAction);
-    addViewToggle("Show Run Python",       m_pythonAction);
-    addViewToggle("Show Sync Boundaries",  m_syncBoundariesAction);
-    addViewToggle("Show ParaView",         m_paraviewAction);
+    addViewToggle("Show New File",         m_newFileAction, false);
+    addViewToggle("Show New Folder",       m_newFolderAction, false);
+    addViewToggle("Show BC Panel",         m_bcPanelAction, true);
+    addViewToggle("Show Terminal",         m_terminalAction, true);
+    addViewToggle("Show Run Python",       m_pythonAction, true);
+    addViewToggle("Show Sync Boundaries",  m_syncBoundariesAction, true);
+    addViewToggle("Show ParaView",         m_paraviewAction, true);
     m_viewMenu->addSeparator();
 
     // Case menu — case-level operations (open, close, create, clean, sync, tools)
@@ -293,8 +307,6 @@ void MainWindow::createToolBar()
     m_mainToolBar->addSeparator();
     m_mainToolBar->addAction(m_saveAction);
     m_mainToolBar->addSeparator();
-    m_mainToolBar->addAction(m_newFileAction);
-    m_mainToolBar->addAction(m_newFolderAction);
     m_mainToolBar->addAction(m_deleteAction);
     m_mainToolBar->addSeparator();
     m_mainToolBar->addAction(m_bcPanelAction);
