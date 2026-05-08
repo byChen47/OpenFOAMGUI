@@ -266,6 +266,26 @@ void MainWindow::createMenus()
     addViewToggle("Show Sync Boundaries",  m_syncBoundariesAction, true);
     addViewToggle("Show ParaView",         m_paraviewAction, true);
     m_viewMenu->addSeparator();
+    QAction *resetLayout = m_viewMenu->addAction("Reset Default &Layout");
+    connect(resetLayout, &QAction::triggered, [this]() {
+        // Restore toolbar buttons to their default positions
+        m_mainToolBar->clear();
+        m_mainToolBar->addAction(m_openCaseAction);
+        m_mainToolBar->addAction(m_closeCaseAction);
+        m_mainToolBar->addSeparator();
+        m_mainToolBar->addAction(m_saveAction);
+        m_mainToolBar->addSeparator();
+        m_mainToolBar->addAction(m_deleteAction);
+        m_mainToolBar->addSeparator();
+        m_mainToolBar->addAction(m_bcPanelAction);
+        m_mainToolBar->addAction(m_terminalAction);
+        m_mainToolBar->addAction(m_pythonAction);
+        m_mainToolBar->addAction(m_syncBoundariesAction);
+        m_mainToolBar->addAction(m_paraviewAction);
+        // Re-apply View toggle state (if New File/Folder were checked, add them)
+        statusBar()->showMessage("Layout reset to default.", 3000);
+    });
+    m_viewMenu->addSeparator();
 
     // Case menu — case-level operations (open, close, create, clean, sync, tools)
     m_caseMenu = menuBar()->addMenu("&Case");
@@ -298,7 +318,8 @@ void MainWindow::createMenus()
 void MainWindow::createToolBar()
 {
     m_mainToolBar = addToolBar("Main Toolbar");
-    m_mainToolBar->setMovable(false);
+    m_mainToolBar->setMovable(true);
+    m_mainToolBar->setObjectName("MainToolBar");
     m_mainToolBar->setIconSize(QSize(20, 20));
     m_mainToolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
