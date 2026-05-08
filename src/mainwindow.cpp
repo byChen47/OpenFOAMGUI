@@ -236,6 +236,17 @@ void MainWindow::createMenus()
 
     // View menu
     m_viewMenu = menuBar()->addMenu("&View");
+    // Toolbar visibility toggles
+    auto addViewToggle = [&](const QString &name, QAction *target) {
+        auto *act = m_viewMenu->addAction(name);
+        act->setCheckable(true);
+        act->setChecked(true);
+        connect(act, &QAction::toggled, [target](bool on) { target->setVisible(on); });
+    };
+    addViewToggle("Show BC Panel",    m_bcPanelAction);
+    addViewToggle("Show Terminal",    m_terminalAction);
+    addViewToggle("Show Run Python",  m_pythonAction);
+    addViewToggle("Show ParaView",    m_paraviewAction);
     m_viewMenu->addSeparator();
 
     // Case menu — case-level operations (open, close, create, clean, sync, tools)
