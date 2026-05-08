@@ -56,6 +56,7 @@ private slots:
     void onOpenTerminal();
     void onCloseCase();
     void onSyncBoundaries();
+    void onRunPython();
 
 private:
     void createActions();
@@ -124,6 +125,7 @@ private:
     QAction *m_newFolderAction;
     QAction *m_deleteAction;
     QAction *m_cleanTimeAction;
+    QAction *m_pythonAction;
     QAction *m_paraviewAction;
     QAction *m_paraviewConfigAction;
     QAction *m_refreshAction;

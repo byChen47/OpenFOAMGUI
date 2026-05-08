@@ -179,6 +179,10 @@ void MainWindow::createActions()
     m_bcPanelAction->setCheckable(true);
     m_bcPanelAction->setChecked(true);
 
+    m_pythonAction = new QAction("Run &Python", this);
+    m_pythonAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
+    m_pythonAction->setStatusTip("Run the current Python file with system Python");
+
     m_terminalAction = new QAction("&Terminal", this);
     m_terminalAction->setShortcut(QKeySequence("Ctrl+`"));
     m_terminalAction->setStatusTip("Open system terminal in the current directory");
@@ -238,6 +242,7 @@ void MainWindow::createMenus()
     m_caseMenu->addAction(m_cleanTimeAction);
     m_caseMenu->addAction(m_syncBoundariesAction);
     m_caseMenu->addSeparator();
+    m_caseMenu->addAction(m_pythonAction);
     m_caseMenu->addAction(m_paraviewAction);
     m_caseMenu->addAction(m_paraviewConfigAction);
     m_caseMenu->addSeparator();
@@ -272,6 +277,7 @@ void MainWindow::createToolBar()
     m_mainToolBar->addSeparator();
     m_mainToolBar->addAction(m_bcPanelAction);
     m_mainToolBar->addAction(m_terminalAction);
+    m_mainToolBar->addAction(m_pythonAction);
     m_mainToolBar->addAction(m_paraviewAction);
 }
 
@@ -382,6 +388,7 @@ void MainWindow::setupConnections()
     connect(m_deleteAction, &QAction::triggered, this, &MainWindow::onDeleteSelected);
     connect(m_cleanTimeAction, &QAction::triggered, this, &MainWindow::onCleanTimeDirs);
     connect(m_syncBoundariesAction, &QAction::triggered, this, &MainWindow::onSyncBoundaries);
+    connect(m_pythonAction, &QAction::triggered, this, &MainWindow::onRunPython);
     connect(m_paraviewAction, &QAction::triggered, this, &MainWindow::onParaView);
     connect(m_paraviewConfigAction, &QAction::triggered, this, &MainWindow::onConfigureParaView);
     connect(m_refreshAction, &QAction::triggered, this, &MainWindow::onRefreshCase);
@@ -1227,6 +1234,98 @@ int MainWindow::syncBoundariesForCase(const QString &casePath)
         statusBar()->showMessage("All field files are already in sync.", 3000);
     }
     return updatedCount;
+}
+
+// ── Run Python ──────────────────────────────────────────────────
+void MainWindow::onRunPython()
+{
+    // Find Python executable
+    QString pythonPath = QStandardPaths::findExecutable("python");
+    if (pythonPath.isEmpty())
+        pythonPath = QStandardPaths::findExecutable("python3");
+    if (pythonPath.isEmpty()) {
+        // Check common Windows paths
+        QStringList pyPaths = {
+            "C:/Python312/python.exe", "C:/Python311/python.exe",
+            "C:/Python310/python.exe", "C:/Python39/python.exe",
+        };
+        QString home = qgetenv("USERNAME");
+        pyPaths << "C:/Users/" + home + "/AppData/Local/Programs/Python/Python312/python.exe";
+        pyPaths << "C:/Users/" + home + "/AppData/Local/Programs/Python/Python311/python.exe";
+        for (const auto &p : pyPaths)
+            if (QFileInfo::exists(p)) { pythonPath = p; break; }
+    }
+
+    // If the current file is a .py, run it. Otherwise ask user.
+    CodeEditor *editor = currentEditor();
+    QString scriptPath;
+
+    if (editor && editor->fileName().endsWith(".py", Qt::CaseInsensitive)) {
+        scriptPath = editor->fileName();
+        // Save before running
+        if (editor->document()->isModified())
+            saveEditor(editor);
+    } else {
+        // Let user pick a Python file
+        scriptPath = QFileDialog::getOpenFileName(this, "Select Python Script",
+            QString(), "Python Files (*.py);;All Files (*.*)");
+    }
+
+    if (scriptPath.isEmpty() || pythonPath.isEmpty()) {
+        if (pythonPath.isEmpty()) {
+            QMessageBox::information(this, "Python Not Found",
+                "Python is not installed or not in PATH.\n\n"
+                "Install Python from https://www.python.org/downloads/\n"
+                "and ensure it is added to your system PATH.");
+        }
+        return;
+    }
+
+    // Run the script and capture output
+    QProcess proc;
+    proc.setWorkingDirectory(QFileInfo(scriptPath).absolutePath());
+    proc.start(pythonPath, {scriptPath});
+
+    if (!proc.waitForStarted(5000)) {
+        QMessageBox::warning(this, "Python Error",
+            "Failed to start Python.\nPath: " + pythonPath);
+        return;
+    }
+
+    statusBar()->showMessage("Running: " + scriptPath, 3000);
+
+    // Wait up to 60 seconds for completion
+    if (!proc.waitForFinished(60000)) {
+        proc.kill();
+        QMessageBox::warning(this, "Python Timeout",
+            "The script took too long and was terminated.");
+        return;
+    }
+
+    QString output = QString::fromUtf8(proc.readAllStandardOutput());
+    QString errors = QString::fromUtf8(proc.readAllStandardError());
+    int exitCode = proc.exitCode();
+
+    // Show output dialog
+    QString result;
+    if (!output.isEmpty())
+        result += output;
+    if (!errors.isEmpty()) {
+        if (!result.isEmpty()) result += "\n\n";
+        result += "--- STDERR ---\n" + errors;
+    }
+    if (result.isEmpty())
+        result = "(no output)";
+    result += QString("\n\nExit code: %1").arg(exitCode);
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Python Output");
+    msgBox.setText(result);
+    msgBox.setDetailedText(result);
+    msgBox.exec();
+
+    statusBar()->showMessage(
+        QString("Python exit code: %1").arg(exitCode), 5000);
 }
 
 void MainWindow::onParaView()
