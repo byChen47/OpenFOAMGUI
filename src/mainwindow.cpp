@@ -37,6 +37,8 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle("OpenFOAM GUI — CFD Case Manager");
+    // Show icons in menus (disabled by default on Windows)
+    menuBar()->setNativeMenuBar(false);
     setMinimumSize(1000, 650);
 
     createActions();
@@ -163,7 +165,8 @@ void MainWindow::createActions()
     m_deleteAction->setShortcut(QKeySequence::Delete);
     m_deleteAction->setStatusTip("Delete the selected file or folder");
 
-    m_cleanTimeAction = new QAction("Clean &Time Dirs", this);
+    m_cleanTimeAction = new QAction(s->standardIcon(QStyle::SP_DialogResetButton),
+                                    "Clean &Time Dirs", this);
     m_cleanTimeAction->setStatusTip("Delete all time directories except 0/ from all opened cases");
 
     m_paraviewAction = new QAction("&ParaView", this);
@@ -187,15 +190,18 @@ void MainWindow::createActions()
     m_bcPanelAction->setCheckable(true);
     m_bcPanelAction->setChecked(true);
 
-    m_pythonAction = new QAction("Run &Python", this);
+    m_pythonAction = new QAction(s->standardIcon(QStyle::SP_MediaPlay),
+                                 "Run &Python", this);
     m_pythonAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
     m_pythonAction->setStatusTip("Run the current Python file with system Python");
 
-    m_terminalAction = new QAction("&Terminal", this);
+    m_terminalAction = new QAction(s->standardIcon(QStyle::SP_ComputerIcon),
+                                   "&Terminal", this);
     m_terminalAction->setShortcut(QKeySequence("Ctrl+`"));
     m_terminalAction->setStatusTip("Open system terminal in the current directory");
 
-    m_syncBoundariesAction = new QAction("Sync &Boundaries", this);
+    m_syncBoundariesAction = new QAction(s->standardIcon(QStyle::SP_ArrowRight),
+                                         "Sync &Boundaries", this);
     m_syncBoundariesAction->setStatusTip("Sync blockMeshDict boundary names to all 0/ field files boundaryField");
 
     m_aboutAction = new QAction("&About OpenFOAM GUI", this);
