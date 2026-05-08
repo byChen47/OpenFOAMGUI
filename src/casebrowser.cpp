@@ -489,8 +489,18 @@ void CaseBrowser::newFile()
     QString name = QInputDialog::getText(this, "New File", "File name:",
         QLineEdit::Normal, "", &ok);
     if (ok && !name.isEmpty()) {
-        QFile f(QDir(dir).filePath(name));
-        if (f.open(QFile::WriteOnly)) { f.close(); refresh(); emit filesystemChanged(); }
+        QString filePath = QDir(dir).filePath(name);
+        QFile f(filePath);
+        if (f.open(QFile::WriteOnly)) {
+            f.close();
+            // Insert item directly without full tree rebuild
+            QFileInfo fi(filePath);
+            QTreeWidgetItem *parent = m_tree->currentItem();
+            if (parent && parent->data(0, Qt::UserRole + 1).toString() == "file")
+                parent = parent->parent();
+            createFileItem(fi, parent);
+            emit filesystemChanged();
+        }
     }
 }
 
@@ -502,8 +512,17 @@ void CaseBrowser::newFolder()
     QString name = QInputDialog::getText(this, "New Folder", "Folder name:",
         QLineEdit::Normal, "", &ok);
     if (ok && !name.isEmpty()) {
+        QString folderPath = QDir(dir).filePath(name);
         QDir(dir).mkdir(name);
-        refresh();
+        // Insert folder directly without full tree rebuild
+        QTreeWidgetItem *parent = m_tree->currentItem();
+        if (parent && parent->data(0, Qt::UserRole + 1).toString() == "file")
+            parent = parent->parent();
+        auto *item = new QTreeWidgetItem(parent);
+        item->setText(0, name);
+        item->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
+        item->setData(0, Qt::UserRole, folderPath);
+        item->setData(0, Qt::UserRole + 1, "subdir");
         emit filesystemChanged();
     }
 }
@@ -525,7 +544,8 @@ void CaseBrowser::deleteSelected()
         == QMessageBox::Ok) {
         if (type == "file") QFile::remove(path);
         else QDir(path).removeRecursively();
-        refresh();
+        // Remove tree item directly — no full rebuild needed
+        delete item;
         emit filesystemChanged();
     }
 }
