@@ -44,6 +44,7 @@ signals:
 
 private slots:
     void onItemDoubleClicked(QTreeWidgetItem *item, int column);
+    void onItemExpanded(QTreeWidgetItem *item);
     void onFilterTextChanged(const QString &text);
     void onCustomContextMenu(const QPoint &pos);
 

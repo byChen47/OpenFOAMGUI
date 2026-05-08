@@ -48,6 +48,8 @@ CaseBrowser::CaseBrowser(QWidget *parent)
 
     connect(m_tree, &QTreeWidget::itemDoubleClicked,
             this, &CaseBrowser::onItemDoubleClicked);
+    connect(m_tree, &QTreeWidget::itemExpanded,
+            this, &CaseBrowser::onItemExpanded);
     connect(m_filterEdit, &QLineEdit::textChanged,
             this, &CaseBrowser::onFilterTextChanged);
     connect(m_tree, &QTreeWidget::customContextMenuRequested,
@@ -219,11 +221,20 @@ bool CaseBrowser::isTimeDirectory(const QString &name)
     return ok;
 }
 
+// Helper: add a lazy-load placeholder child to a tree item
+static void addPlaceholder(QTreeWidgetItem *item) {
+    auto *ph = new QTreeWidgetItem(item);
+    ph->setText(0, "...");
+    ph->setFlags(Qt::NoItemFlags);
+}
+
 void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
                                      const QString &casePath)
 {
     QDir caseDir(casePath);
     if (!caseDir.exists()) return;
+
+    m_tree->setUpdatesEnabled(false); // batch all inserts
 
     QStringList entries = caseDir.entryList(
         QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot,
@@ -243,8 +254,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
         }
     }
 
-    // Always populate standard dirs if present
-    // Time dirs
+    // Time dirs — lazy: only add placeholder, load on expand
     for (const auto &td : timeDirs) {
         auto *tdItem = new QTreeWidgetItem(caseRoot);
         tdItem->setText(0, td);
@@ -252,10 +262,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
         QString tdPath = caseDir.filePath(td);
         tdItem->setData(0, Qt::UserRole, tdPath);
         tdItem->setData(0, Qt::UserRole + 1, "timedir");
-        QDir tDir(tdPath);
-        auto files = tDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
-        for (const auto &f : files)
-            createFileItem(f, tdItem);
+        addPlaceholder(tdItem);
     }
 
     // constant/
@@ -275,16 +282,14 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
                 sub->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
                 sub->setData(0, Qt::UserRole, cf.absoluteFilePath());
                 sub->setData(0, Qt::UserRole + 1, "subdir");
-                QDir sd(cf.absoluteFilePath());
-                for (const auto &sf : sd.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name))
-                    createFileItem(sf, sub);
+                addPlaceholder(sub);
             } else {
                 createFileItem(cf, ci);
             }
         }
     }
 
-    // system/
+    // system/ — load eagerly (usually few files)
     if (!hasSystem.isEmpty()) {
         auto *si = new QTreeWidgetItem(caseRoot);
         si->setText(0, "system");
@@ -300,9 +305,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
     for (const auto &of : otherFiles)
         createFileItem(QFileInfo(caseDir.filePath(of)), caseRoot);
 
-    // Handle sub-directories: EACH is checked independently
-    // This supports overset mesh cases with multiple component dirs
-    // (e.g. background/, overset/, component1/, component2/)
+    // Sub-directories — lazy
     for (const auto &sd : subDirs) {
         QDir sdDir(caseDir.filePath(sd));
         auto sdE = sdDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
@@ -315,7 +318,6 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
         }
 
         if (isSubCase) {
-            // This sub-directory has OpenFOAM structure → treat as sub-case
             auto *subItem = new QTreeWidgetItem(caseRoot);
             subItem->setText(0, sd);
             subItem->setIcon(0, style()->standardIcon(QStyle::SP_DirOpenIcon));
@@ -324,32 +326,58 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
             QFont f = subItem->font(0);
             f.setBold(true);
             subItem->setFont(0, f);
-            populateCaseUnder(subItem, sdDir.absolutePath());
+            addPlaceholder(subItem);
         } else {
-            // Regular directory — add as a browseable folder
             auto *odi = new QTreeWidgetItem(caseRoot);
             odi->setText(0, sd);
             odi->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
             odi->setData(0, Qt::UserRole, caseDir.filePath(sd));
             odi->setData(0, Qt::UserRole + 1, "subdir");
+            addPlaceholder(odi);
+        }
+    }
 
-            // Populate shallow contents of this dir
-            QDir subD(caseDir.filePath(sd));
-            auto sf = subD.entryInfoList(
-                QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot,
-                QDir::DirsFirst | QDir::Name);
-            for (const auto &sff : sf) {
-                if (sff.isDir()) {
-                    auto *dItem = new QTreeWidgetItem(odi);
-                    dItem->setText(0, sff.fileName());
-                    dItem->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
-                    dItem->setData(0, Qt::UserRole, sff.absoluteFilePath());
-                    dItem->setData(0, Qt::UserRole + 1, "subdir");
-                } else {
-                    createFileItem(sff, odi);
-                }
+    m_tree->setUpdatesEnabled(true);
+}
+
+// ── Lazy loader: called when user expands a node ──
+void CaseBrowser::onItemExpanded(QTreeWidgetItem *item)
+{
+    // Only load if item has a placeholder child
+    if (item->childCount() != 1) return;
+    auto *ph = item->child(0);
+    if (ph->text(0) != "...") return;
+
+    delete ph; // remove placeholder
+
+    QString type = item->data(0, Qt::UserRole + 1).toString();
+    QString path = item->data(0, Qt::UserRole).toString();
+
+    if (type == "timedir") {
+        QDir tDir(path);
+        auto files = tDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
+        for (const auto &f : files)
+            createFileItem(f, item);
+    } else if (type == "constantdir") {
+        // Already loaded eagerly above
+    } else if (type == "subdir") {
+        QDir dir(path);
+        auto sf = dir.entryInfoList(
+            QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDir::DirsFirst | QDir::Name);
+        for (const auto &sff : sf) {
+            if (sff.isDir()) {
+                auto *dItem = new QTreeWidgetItem(item);
+                dItem->setText(0, sff.fileName());
+                dItem->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
+                dItem->setData(0, Qt::UserRole, sff.absoluteFilePath());
+                dItem->setData(0, Qt::UserRole + 1, "subdir");
+                addPlaceholder(dItem);
+            } else {
+                createFileItem(sff, item);
             }
         }
+    } else if (type == "subcase") {
+        populateCaseUnder(item, path);
     }
 }
 
