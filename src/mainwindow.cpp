@@ -164,10 +164,20 @@ void MainWindow::createActions()
     m_commentAction->setShortcut(QKeySequence("Ctrl+/"));
     m_commentAction->setStatusTip("Toggle line comments (// or # based on file language)");
 
-    m_autoCompleteAction = new QAction("&Auto Completion", this);
-    m_autoCompleteAction->setCheckable(true);
-    m_autoCompleteAction->setChecked(true);
-    m_autoCompleteAction->setStatusTip("Enable/disable code auto-completion");
+    m_acCppAction = new QAction("C++ Auto Completion", this);
+    m_acCppAction->setCheckable(true);
+    m_acCppAction->setChecked(true);
+    m_acCppAction->setStatusTip("Enable auto-completion for C++ keywords and STL");
+
+    m_acPythonAction = new QAction("Python Auto Completion", this);
+    m_acPythonAction->setCheckable(true);
+    m_acPythonAction->setChecked(true);
+    m_acPythonAction->setStatusTip("Enable auto-completion for Python keywords");
+
+    m_acOFAction = new QAction("OpenFOAM Auto Completion", this);
+    m_acOFAction->setCheckable(true);
+    m_acOFAction->setChecked(true);
+    m_acOFAction->setStatusTip("Enable auto-completion for OpenFOAM BCs and keywords");
 
     m_newFileAction = new QAction(s->standardIcon(QStyle::SP_FileIcon),
                                   "New &File", this);
@@ -264,7 +274,9 @@ void MainWindow::createMenus()
     m_editMenu->addAction(m_findAction);
     m_editMenu->addAction(m_commentAction);
     m_editMenu->addSeparator();
-    m_editMenu->addAction(m_autoCompleteAction);
+    m_editMenu->addAction(m_acCppAction);
+    m_editMenu->addAction(m_acPythonAction);
+    m_editMenu->addAction(m_acOFAction);
 
     // View menu
     m_viewMenu = menuBar()->addMenu("&View");
@@ -491,11 +503,20 @@ void MainWindow::setupConnections()
         if (auto *e = currentEditor()) e->toggleComment();
         else statusBar()->showMessage("No file is open to comment.", 3000);
     });
-    connect(m_autoCompleteAction, &QAction::toggled, [this](bool on) {
-        for (int i = 0; i < m_tabWidget->count(); ++i) {
+    connect(m_acCppAction, &QAction::toggled, [this](bool on) {
+        for (int i = 0; i < m_tabWidget->count(); ++i)
             if (auto *e = qobject_cast<CodeEditor*>(m_tabWidget->widget(i)))
-                e->setAutoCompletion(on);
-        }
+                e->setAutoCompleteCpp(on);
+    });
+    connect(m_acPythonAction, &QAction::toggled, [this](bool on) {
+        for (int i = 0; i < m_tabWidget->count(); ++i)
+            if (auto *e = qobject_cast<CodeEditor*>(m_tabWidget->widget(i)))
+                e->setAutoCompletePython(on);
+    });
+    connect(m_acOFAction, &QAction::toggled, [this](bool on) {
+        for (int i = 0; i < m_tabWidget->count(); ++i)
+            if (auto *e = qobject_cast<CodeEditor*>(m_tabWidget->widget(i)))
+                e->setAutoCompleteOpenFOAM(on);
     });
     connect(m_newFileAction, &QAction::triggered, this, &MainWindow::onNewFile);
     connect(m_newFolderAction, &QAction::triggered, this, &MainWindow::onNewFolder);

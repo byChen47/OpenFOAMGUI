@@ -30,7 +30,9 @@ public:
     bool maybeSave();
 
     void toggleComment();
-    void setAutoCompletion(bool enabled);
+    void setAutoCompleteCpp(bool on)       { m_acCpp = on; }
+    void setAutoCompletePython(bool on)    { m_acPython = on; }
+    void setAutoCompleteOpenFOAM(bool on)  { m_acOF = on; }
 
 signals:
     void fileSaved(const QString &path);
@@ -48,13 +50,18 @@ private slots:
 private:
     void setupCompleter();
     QString wordUnderCursor() const;
+    QStringList completionWords() const;
+    void handleAutoIndent(QKeyEvent *e = nullptr);
+    void handleBraceCompletion();
 
     QWidget *m_lineNumberArea;
     OFHighlighter *m_highlighter;
     QCompleter *m_completer = nullptr;
     QString m_filePath;
     FileLanguage m_language = FileLanguage::Unknown;
-    bool m_autoComplete = true;
+    bool m_acCpp = true;
+    bool m_acPython = true;
+    bool m_acOF = true;
 };
 
 #endif // CODEEDITOR_H

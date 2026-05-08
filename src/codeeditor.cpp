@@ -254,12 +254,88 @@ void CodeEditor::setupCompleter()
             this, &CodeEditor::insertCompletion);
 }
 
-void CodeEditor::setAutoCompletion(bool enabled)
+QStringList CodeEditor::completionWords() const
 {
-    m_autoComplete = enabled;
-    if (!enabled)
-        m_completer->popup()->hide();
+    QStringList words;
+    if (m_acCpp)     words += cppKeywords();
+    if (m_acPython)  words += pyKeywords();
+    if (m_acOF)      words += ofKeywords();
+    words.removeDuplicates();
+    return words;
 }
+
+// ── Handle automatic brace/code formatting ──
+void CodeEditor::handleAutoIndent(QKeyEvent *e)
+{
+    Q_UNUSED(e);
+    QTextCursor cursor = textCursor();
+    cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
+    QString lineText = cursor.selectedText();
+    int indent = 0;
+    while (indent < lineText.length() && (lineText[indent] == ' ' || lineText[indent] == '\t'))
+        indent++;
+    QString ws = lineText.left(indent);
+    QString trimmed = lineText.trimmed();
+    // Increase indent after { or :
+    if (trimmed.endsWith('{') || trimmed.endsWith(':'))
+        ws += "    ";
+    cursor.clearSelection();
+    cursor.movePosition(QTextCursor::EndOfBlock);
+    setTextCursor(cursor);
+    cursor.insertText("\n" + ws);
+    setTextCursor(cursor);
+}
+
+void CodeEditor::handleBraceCompletion()
+{
+    QTextCursor cursor = textCursor();
+    // Get current line's indentation
+    cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
+    QString lineText = cursor.selectedText();
+    int indent = 0;
+    while (indent < lineText.length() && (lineText[indent] == ' ' || lineText[indent] == '\t'))
+        indent++;
+    QString ws = lineText.left(indent);
+
+    // Insert { and } with proper indentation and cursor between them
+    cursor.clearSelection();
+    cursor.movePosition(QTextCursor::EndOfBlock);
+    setTextCursor(cursor);
+    cursor.beginEditBlock();
+    if (cursor.atBlockEnd() && cursor.position() == cursor.block().position() + cursor.block().length() - 1)
+        cursor.insertText(" {");
+    else
+        cursor.insertText("{");
+    cursor.insertText("\n" + ws + "    \n" + ws + "}");
+    cursor.movePosition(QTextCursor::Up);
+    cursor.movePosition(QTextCursor::EndOfBlock);
+    cursor.endEditBlock();
+    setTextCursor(cursor);
+}
+
+// ── Header file completions ──
+static QStringList headerFiles() { return {
+    // C standard
+    "<assert.h>","<ctype.h>","<errno.h>","<float.h>","<limits.h>","<math.h>",
+    "<stddef.h>","<stdio.h>","<stdlib.h>","<string.h>","<time.h>",
+    // C++ standard
+    "<algorithm>","<array>","<atomic>","<bitset>","<chrono>","<cmath>",
+    "<complex>","<deque>","<exception>","<filesystem>","<forward_list>",
+    "<fstream>","<functional>","<future>","<initializer_list>","<iomanip>",
+    "<ios>","<iostream>","<istream>","<iterator>","<list>","<map>",
+    "<memory>","<mutex>","<numeric>","<optional>","<ostream>","<queue>",
+    "<random>","<ranges>","<regex>","<set>","<span>","<sstream>","<stack>",
+    "<stdexcept>","<streambuf>","<string>","<string_view>","<strstream>",
+    "<thread>","<tuple>","<type_traits>","<unordered_map>","<unordered_set>",
+    "<utility>","<variant>","<vector>",
+    // OpenFOAM
+    "<argList.H>","<autoPtr.H>","<dictionary.H>","<dimensionedType.H>",
+    "<fvCFD.H>","<fvMesh.H>","<fvPatchField.H>","<IOdictionary.H>","<IOobject.H>",
+    "<OFstream.H>","<polyMesh.H>","<runTimeSelectionTable.H>","<Time.H>","<tmp.H>",
+    "<volFields.H>","<surfaceFields.H>","<pointFields.H>","<tensor.H>",
+    "<transform.H>","<wallDist.H>","<vector.H>","<scalar.H>","<Switch.H>",
+    "<forces.H>","<functionObject.H>","<messageStream.H>",
+};}
 
 QString CodeEditor::wordUnderCursor() const
 {
@@ -297,32 +373,28 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
     // ── Auto-indent on Enter ──
     if ((e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter)
         && e->modifiers() == Qt::NoModifier) {
+        handleAutoIndent(e);
+        return;
+    }
+
+    // ── Brace completion: { + Enter → formatted block ──
+    if (e->key() == Qt::Key_BraceLeft
+        && e->modifiers() == Qt::NoModifier) {
+        QPlainTextEdit::keyPressEvent(e);
         QTextCursor cursor = textCursor();
-        cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
-        QString lineText = cursor.selectedText();
-
-        // Get leading whitespace
-        int indent = 0;
-        while (indent < lineText.length() && (lineText[indent] == ' ' || lineText[indent] == '\t'))
-            indent++;
-        QString ws = lineText.left(indent);
-
-        // Increase indent if line ends with {
-        QString trimmed = lineText.trimmed();
-        if (trimmed.endsWith('{') || trimmed.endsWith(':'))
-            ws += "    "; // 4-space indent
-
-        cursor.clearSelection();
-        cursor.movePosition(QTextCursor::EndOfBlock);
-        setTextCursor(cursor);
-        cursor.insertText("\n" + ws);
-        setTextCursor(cursor);
+        QString line = cursor.block().text().trimmed();
+        // If the line is just "{", auto-create the closing }
+        if (line == "{") {
+            handleBraceCompletion();
+            return;
+        }
+        handleAutoIndent();
         return;
     }
 
     QPlainTextEdit::keyPressEvent(e);
 
-    if (!m_autoComplete || !m_completer) return;
+    if (!m_completer || (!m_acCpp && !m_acPython && !m_acOF)) return;
 
     QString prefix = wordUnderCursor();
     if (prefix.length() < 2) {
@@ -330,22 +402,28 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
         return;
     }
 
-    // Build keyword list based on language
-    if (m_completer->completionPrefix() != prefix) {
-        QStringList words;
-        switch (m_language) {
-        case FileLanguage::Python:
-            words = pyKeywords(); break;
-        case FileLanguage::Cpp:
-        case FileLanguage::CppHeader:
-        case FileLanguage::C:
-        case FileLanguage::OpenFOAM:
-        case FileLanguage::CMake:
-            words = cppKeywords() + ofKeywords(); break;
-        default:
-            words = ofKeywords() + cppKeywords(); break;
+    // ── Header file completion after #include < ──
+    QString ctx = wordUnderCursor();
+    if (ctx == "<" || ctx == "\"") {
+        // Check if we're after #include
+        QTextCursor tc = textCursor();
+        tc.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
+        QString line = tc.selectedText().trimmed();
+        if (line.startsWith("#include")) {
+            m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
+            m_completer->setCompletionPrefix(ctx == "<" ? "<" : "\"");
+            if (m_completer->completionCount() > 0) {
+                QRect cr = cursorRect();
+                cr.setWidth(350);
+                m_completer->complete(cr);
+            }
+            return;
         }
-        words.removeDuplicates();
+    }
+
+    // ── Normal keyword completion ──
+    if (m_completer->completionPrefix() != prefix) {
+        QStringList words = completionWords();
         m_completer->setModel(new QStringListModel(words, m_completer));
         m_completer->setCompletionPrefix(prefix);
     } else {
