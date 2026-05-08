@@ -243,10 +243,11 @@ void MainWindow::createMenus()
         act->setChecked(true);
         connect(act, &QAction::toggled, [target](bool on) { target->setVisible(on); });
     };
-    addViewToggle("Show BC Panel",    m_bcPanelAction);
-    addViewToggle("Show Terminal",    m_terminalAction);
-    addViewToggle("Show Run Python",  m_pythonAction);
-    addViewToggle("Show ParaView",    m_paraviewAction);
+    addViewToggle("Show BC Panel",         m_bcPanelAction);
+    addViewToggle("Show Terminal",         m_terminalAction);
+    addViewToggle("Show Run Python",       m_pythonAction);
+    addViewToggle("Show Sync Boundaries",  m_syncBoundariesAction);
+    addViewToggle("Show ParaView",         m_paraviewAction);
     m_viewMenu->addSeparator();
 
     // Case menu — case-level operations (open, close, create, clean, sync, tools)
@@ -258,7 +259,6 @@ void MainWindow::createMenus()
     m_caseMenu->addAction(m_newFolderAction);
     m_caseMenu->addAction(m_deleteAction);
     m_caseMenu->addAction(m_cleanTimeAction);
-    m_caseMenu->addAction(m_syncBoundariesAction);
     m_caseMenu->addSeparator();
     m_caseMenu->addAction(m_pythonAction);
     m_caseMenu->addAction(m_paraviewAction);
@@ -296,6 +296,7 @@ void MainWindow::createToolBar()
     m_mainToolBar->addAction(m_bcPanelAction);
     m_mainToolBar->addAction(m_terminalAction);
     m_mainToolBar->addAction(m_pythonAction);
+    m_mainToolBar->addAction(m_syncBoundariesAction);
     m_mainToolBar->addAction(m_paraviewAction);
 }
 
