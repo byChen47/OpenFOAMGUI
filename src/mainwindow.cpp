@@ -319,9 +319,24 @@ void MainWindow::createToolBar()
 {
     m_mainToolBar = addToolBar("Main Toolbar");
     m_mainToolBar->setMovable(true);
+    m_mainToolBar->setFloatable(true);
     m_mainToolBar->setObjectName("MainToolBar");
     m_mainToolBar->setIconSize(QSize(20, 20));
     m_mainToolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_mainToolBar->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    // Give every action a unique objectName — required for drag-to-reorder
+    m_openCaseAction->setObjectName("tbOpenCase");
+    m_closeCaseAction->setObjectName("tbCloseCase");
+    m_saveAction->setObjectName("tbSave");
+    m_deleteAction->setObjectName("tbDelete");
+    m_bcPanelAction->setObjectName("tbBCPanel");
+    m_terminalAction->setObjectName("tbTerminal");
+    m_pythonAction->setObjectName("tbRunPython");
+    m_syncBoundariesAction->setObjectName("tbSyncBoundaries");
+    m_paraviewAction->setObjectName("tbParaView");
+    m_newFileAction->setObjectName("tbNewFile");
+    m_newFolderAction->setObjectName("tbNewFolder");
 
     m_mainToolBar->addAction(m_openCaseAction);
     m_mainToolBar->addAction(m_closeCaseAction);
@@ -335,6 +350,17 @@ void MainWindow::createToolBar()
     m_mainToolBar->addAction(m_pythonAction);
     m_mainToolBar->addAction(m_syncBoundariesAction);
     m_mainToolBar->addAction(m_paraviewAction);
+
+    // Right-click toolbar → Customize for drag-to-reorder
+    connect(m_mainToolBar, &QToolBar::customContextMenuRequested, [this](const QPoint &) {
+        QMenu menu;
+        QAction *customize = menu.addAction("Customize Toolbar...");
+        connect(customize, &QAction::triggered, [this]() {
+            // Open Qt's built-in toolbar editor for drag-to-reorder
+            QMetaObject::invokeMethod(this, "toggleViewAction", Qt::DirectConnection);
+        });
+        menu.exec(QCursor::pos());
+    });
 }
 
 // ────────────────────────────────────────────────────────────────────
