@@ -1239,7 +1239,7 @@ void MainWindow::onParaView()
 
     QString caseDir = cases.first();
 
-    // Create .foam dummy file (ParaView needs it to read OpenFOAM cases)
+    // Create .foam dummy file
     QString foamFile = QDir(caseDir).filePath(
         QDir(caseDir).dirName() + ".foam");
     QFile f(foamFile);
@@ -1248,60 +1248,67 @@ void MainWindow::onParaView()
         f.close();
     }
 
-    // Try user-configured path first
+    // Try user-configured path first, then auto-detect
     QString paraviewPath = m_paraviewPath;
     if (!paraviewPath.isEmpty() && !QFileInfo::exists(paraviewPath))
-        paraviewPath.clear(); // configured path no longer valid
-
-    // Auto-detect
-#ifdef Q_OS_WIN
-    QStringList searchPaths = {
-        "paraview.exe",
-        "C:/Program Files/ParaView 5.13/bin/paraview.exe",
-        "C:/Program Files/ParaView 5.12/bin/paraview.exe",
-        "C:/Program Files/ParaView 5.11/bin/paraview.exe",
-        "C:/Program Files/ParaView 5.10/bin/paraview.exe",
-        "C:/Program Files/ParaView/bin/paraview.exe",
-    };
-#else
-    QStringList searchPaths = {
-        "paraview", "/usr/bin/paraview", "/usr/local/bin/paraview",
-    };
-#endif
-
-    for (const auto &p : searchPaths) {
-        if (QFileInfo::exists(p)) { paraviewPath = p; break; }
-    }
-    if (paraviewPath.isEmpty())
-        paraviewPath = QStandardPaths::findExecutable("paraview");
+        paraviewPath.clear();
 
     if (paraviewPath.isEmpty()) {
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle("ParaView Not Found");
-        msgBox.setText("ParaView executable not found.\n\n"
-            "Would you like to browse for the ParaView executable?");
-        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-        msgBox.setDefaultButton(QMessageBox::Yes);
-        if (msgBox.exec() == QMessageBox::Yes) {
-            onConfigureParaView();
-            paraviewPath = m_paraviewPath;
+#ifdef Q_OS_WIN
+        QStringList searchPaths = {
+            "paraview.exe",
+            "C:/Program Files/ParaView 5.13/bin/paraview.exe",
+            "C:/Program Files/ParaView 5.12/bin/paraview.exe",
+            "C:/Program Files/ParaView 5.11/bin/paraview.exe",
+            "C:/Program Files/ParaView 5.10/bin/paraview.exe",
+            "C:/Program Files/ParaView/bin/paraview.exe",
+        };
+        for (const auto &p : searchPaths) {
+            if (QFileInfo::exists(p)) { paraviewPath = p; break; }
         }
+#else
+        for (const auto &p : {"paraview","/usr/bin/paraview","/usr/local/bin/paraview"}) {
+            if (QFileInfo::exists(p)) { paraviewPath = p; break; }
+        }
+#endif
+        if (paraviewPath.isEmpty())
+            paraviewPath = QStandardPaths::findExecutable("paraview");
     }
 
-    if (paraviewPath.isEmpty() || !QFileInfo::exists(paraviewPath)) {
+    // ── ParaView NOT found ──
+    if (paraviewPath.isEmpty()) {
         QMessageBox::information(this, "ParaView Not Found",
-            "ParaView executable not found.\n\n"
-            "Configure the path via: Case → ParaView Path...\n"
+            "ParaView is not installed on this computer.\n\n"
+            "Download ParaView (free, open-source):\n"
+            "https://www.paraview.org/download/\n\n"
+            "After installation, set the path via:\n"
+            "Case → ParaView Path...\n\n"
             "The .foam file has been created at:\n" + foamFile);
-        statusBar()->showMessage("ParaView not found. .foam file created.", 5000);
+        statusBar()->showMessage(
+            "ParaView not found — download at paraview.org", 8000);
         return;
     }
 
-    QProcess::startDetached(paraviewPath, {
+    // ── ParaView found — launch ──
+    statusBar()->showMessage(
+        "Launching: " + paraviewPath, 5000);
+
+    bool launched = QProcess::startDetached(paraviewPath, {
         "--data=" + QDir::toNativeSeparators(foamFile)
     });
 
-    statusBar()->showMessage("ParaView launched with: " + foamFile, 5000);
+    if (launched) {
+        statusBar()->showMessage(
+            "ParaView launched: " + paraviewPath, 8000);
+    } else {
+        QMessageBox::warning(this, "ParaView Launch Failed",
+            "ParaView was found but could not be launched.\n\n"
+            "Path: " + paraviewPath + "\n\n"
+            "Try launching it manually, or select a different path via:\n"
+            "Case → ParaView Path...\n\n"
+            ".foam file: " + foamFile);
+        statusBar()->showMessage("ParaView launch failed — check path.", 8000);
+    }
 }
 
 void MainWindow::onConfigureParaView()
