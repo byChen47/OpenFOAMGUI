@@ -419,23 +419,33 @@ void CaseBrowser::onCustomContextMenu(const QPoint &pos)
     if (type == "caseroot" || type == "subcase" || type == "timedir"
         || type == "constantdir" || type == "systemdir" || type == "subdir") {
         QAction *newFileAct = menu.addAction("New File...");
-        connect(newFileAct, &QAction::triggered, [this, path]() {
+        connect(newFileAct, &QAction::triggered, [this, path, item]() {
             bool ok;
             QString name = QInputDialog::getText(this, "New File",
                 "File name:", QLineEdit::Normal, "", &ok);
             if (ok && !name.isEmpty()) {
-                QFile f(QDir(path).filePath(name));
-                if (f.open(QFile::WriteOnly)) { f.close(); refresh(); emit filesystemChanged(); }
+                QString fp = QDir(path).filePath(name);
+                QFile f(fp);
+                if (f.open(QFile::WriteOnly)) {
+                    f.close();
+                    createFileItem(QFileInfo(fp), item);
+                    emit filesystemChanged();
+                }
             }
         });
         QAction *newFolderAct = menu.addAction("New Folder...");
-        connect(newFolderAct, &QAction::triggered, [this, path]() {
+        connect(newFolderAct, &QAction::triggered, [this, path, item]() {
             bool ok;
             QString name = QInputDialog::getText(this, "New Folder",
                 "Folder name:", QLineEdit::Normal, "", &ok);
             if (ok && !name.isEmpty()) {
+                QString fp = QDir(path).filePath(name);
                 QDir(path).mkdir(name);
-                refresh();
+                auto *fi = new QTreeWidgetItem(item);
+                fi->setText(0, name);
+                fi->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
+                fi->setData(0, Qt::UserRole, fp);
+                fi->setData(0, Qt::UserRole + 1, "subdir");
                 emit filesystemChanged();
             }
         });
@@ -447,7 +457,7 @@ void CaseBrowser::onCustomContextMenu(const QPoint &pos)
         || type == "constantdir" || type == "systemdir") {
         QAction *delAct = menu.addAction("Delete");
         delAct->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));
-        connect(delAct, &QAction::triggered, [this, path, type]() {
+        connect(delAct, &QAction::triggered, [this, path, item, type]() {
             QString msg = (type == "file")
                 ? QString("Delete file:\n%1\n\nThis cannot be undone.").arg(path)
                 : QString("Delete directory:\n%1\n\nAll contents will be removed. This cannot be undone.").arg(path);
@@ -455,8 +465,8 @@ void CaseBrowser::onCustomContextMenu(const QPoint &pos)
                 QMessageBox::Ok | QMessageBox::Cancel);
             if (ret == QMessageBox::Ok) {
                 if (type == "file") QFile::remove(path);
-                else { QDir(path).removeRecursively(); }
-                refresh();
+                else QDir(path).removeRecursively();
+                delete item;
                 emit filesystemChanged();
             }
         });
