@@ -269,21 +269,62 @@ void CodeEditor::handleAutoIndent(QKeyEvent *e)
 {
     Q_UNUSED(e);
     QTextCursor cursor = textCursor();
-    cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
-    QString lineText = cursor.selectedText();
+    int cursorPos = cursor.positionInBlock();
+    QString lineText = cursor.block().text();
+
+    // Get leading whitespace
     int indent = 0;
     while (indent < lineText.length() && (lineText[indent] == ' ' || lineText[indent] == '\t'))
         indent++;
     QString ws = lineText.left(indent);
+
+    // Check: are we inside { } with a closing brace after cursor?
+    QString afterCursor = lineText.mid(cursorPos).trimmed();
+    bool hasClosingBrace = afterCursor == "}" ||
+                           (afterCursor.startsWith('}') && afterCursor.length() <= 2);
+
     QString trimmed = lineText.trimmed();
-    // Increase indent after { or :
-    if (trimmed.endsWith('{') || trimmed.endsWith(':'))
-        ws += "    ";
-    cursor.clearSelection();
-    cursor.movePosition(QTextCursor::EndOfBlock);
-    setTextCursor(cursor);
-    cursor.insertText("\n" + ws);
-    setTextCursor(cursor);
+    bool endsWithBrace = trimmed.endsWith('{') || trimmed.endsWith(':');
+
+    cursor.beginEditBlock();
+
+    if (hasClosingBrace && cursorPos < lineText.length()) {
+        // Push closing } to a new line
+        // Remove the } from current line
+        int bracePos = lineText.indexOf('}', cursorPos);
+        cursor.setPosition(cursor.block().position() + bracePos);
+        cursor.setPosition(cursor.block().position() + bracePos + 1, QTextCursor::KeepAnchor);
+        QString braceText = cursor.selectedText(); // should be "}"
+        // Also capture any trailing whitespace/semicolon
+        cursor.setPosition(cursor.block().position() + bracePos);
+        cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+        QString trail = cursor.selectedText();
+        cursor.removeSelectedText();
+
+        // Add newline + indent + cursor, then closing brace on next line
+        cursor.movePosition(QTextCursor::EndOfBlock);
+        setTextCursor(cursor);
+        QString innerWs = ws + "    ";
+        cursor.insertText("\n" + innerWs + "\n" + ws + "}");
+        // Reposition cursor to the inner indented line
+        cursor.movePosition(QTextCursor::StartOfBlock);
+        cursor.movePosition(QTextCursor::Up, QTextCursor::MoveAnchor);
+        cursor.movePosition(QTextCursor::EndOfBlock);
+        setTextCursor(cursor);
+    } else if (endsWithBrace) {
+        // Line ends with { or : → indent next line
+        cursor.movePosition(QTextCursor::EndOfBlock);
+        setTextCursor(cursor);
+        cursor.insertText("\n" + ws + "    ");
+        setTextCursor(cursor);
+    } else {
+        // Normal: preserve indentation
+        cursor.movePosition(QTextCursor::EndOfBlock);
+        setTextCursor(cursor);
+        cursor.insertText("\n" + ws);
+        setTextCursor(cursor);
+    }
+    cursor.endEditBlock();
 }
 
 void CodeEditor::handleBraceCompletion()
