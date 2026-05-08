@@ -172,6 +172,9 @@ void MainWindow::createActions()
     m_paraviewConfigAction = new QAction("ParaView &Path...", this);
     m_paraviewConfigAction->setStatusTip("Configure the ParaView executable path");
 
+    m_pythonConfigAction = new QAction("Python &Path...", this);
+    m_pythonConfigAction->setStatusTip("Configure the Python executable path");
+
     m_refreshAction = new QAction(s->standardIcon(QStyle::SP_BrowserReload),
                                   "&Refresh Case", this);
     m_refreshAction->setShortcut(QKeySequence("F5"));
@@ -263,6 +266,7 @@ void MainWindow::createMenus()
     m_caseMenu->addAction(m_pythonAction);
     m_caseMenu->addAction(m_paraviewAction);
     m_caseMenu->addAction(m_paraviewConfigAction);
+    m_caseMenu->addAction(m_pythonConfigAction);
     m_caseMenu->addSeparator();
     m_caseMenu->addAction(m_refreshAction);
 
@@ -416,6 +420,7 @@ void MainWindow::setupConnections()
     connect(m_pythonAction, &QAction::triggered, this, &MainWindow::onRunPython);
     connect(m_paraviewAction, &QAction::triggered, this, &MainWindow::onParaView);
     connect(m_paraviewConfigAction, &QAction::triggered, this, &MainWindow::onConfigureParaView);
+    connect(m_pythonConfigAction, &QAction::triggered, this, &MainWindow::onConfigurePython);
     connect(m_refreshAction, &QAction::triggered, this, &MainWindow::onRefreshCase);
     connect(m_aboutAction, &QAction::triggered, this, &MainWindow::onAbout);
 
@@ -1286,8 +1291,13 @@ int MainWindow::syncBoundariesForCase(const QString &casePath, QStringList *upda
 // ── Run Python ──────────────────────────────────────────────────
 void MainWindow::onRunPython()
 {
-    // Find Python executable
-    QString pythonPath = QStandardPaths::findExecutable("python");
+    // Find Python executable: user-configured path first
+    QString pythonPath = m_pythonPath;
+    if (!pythonPath.isEmpty() && !QFileInfo::exists(pythonPath))
+        pythonPath.clear();
+
+    if (pythonPath.isEmpty())
+        pythonPath = QStandardPaths::findExecutable("python");
     if (pythonPath.isEmpty())
         pythonPath = QStandardPaths::findExecutable("python3");
     if (pythonPath.isEmpty()) {
@@ -1412,6 +1422,23 @@ void MainWindow::onRunPython()
 
     statusBar()->showMessage(
         QString("Python exit code: %1").arg(exitCode), 5000);
+}
+
+void MainWindow::onConfigurePython()
+{
+    QString path = QFileDialog::getOpenFileName(this, "Select Python Executable",
+        m_pythonPath.isEmpty() ? "C:/" : QFileInfo(m_pythonPath).absolutePath(),
+#ifdef Q_OS_WIN
+        "Python (python.exe);;All Files (*.*)"
+#else
+        "Python (python python3);;All Files (*)"
+#endif
+    );
+    if (!path.isEmpty()) {
+        m_pythonPath = path;
+        saveSettings();
+        statusBar()->showMessage("Python path set: " + path, 5000);
+    }
 }
 
 void MainWindow::onParaView()
@@ -1701,6 +1728,7 @@ void MainWindow::loadSettings()
     QSettings settings;
     m_recentCases = settings.value("recentCases").toStringList();
     m_paraviewPath = settings.value("paraviewPath").toString();
+    m_pythonPath   = settings.value("pythonPath").toString();
     restoreGeometry(settings.value("geometry").toByteArray());
     restoreState(settings.value("windowState").toByteArray());
     updateRecentCasesMenu();
@@ -1711,6 +1739,7 @@ void MainWindow::saveSettings()
     QSettings settings;
     settings.setValue("recentCases", m_recentCases);
     settings.setValue("paraviewPath", m_paraviewPath);
+    settings.setValue("pythonPath",   m_pythonPath);
     settings.setValue("geometry", saveGeometry());
     settings.setValue("windowState", saveState());
 }

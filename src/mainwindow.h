@@ -57,6 +57,7 @@ private slots:
     void onCloseCase();
     void onSyncBoundaries();
     void onRunPython();
+    void onConfigurePython();
 
 private:
     void createActions();
@@ -128,6 +129,7 @@ private:
     QAction *m_cleanTimeAction;
     QAction *m_pythonAction;
     QAction *m_paraviewAction;
+    QAction *m_pythonConfigAction;
     QAction *m_paraviewConfigAction;
     QAction *m_refreshAction;
     QAction *m_bcPanelAction;
@@ -138,7 +140,8 @@ private:
 
     // State
     QStringList m_recentCases;
-    QString     m_paraviewPath;  // user-configured ParaView binary path
+    QString     m_paraviewPath;
+    QString     m_pythonPath;
     static const int MaxRecentCases = 10;
 };
 
