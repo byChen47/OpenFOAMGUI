@@ -48,26 +48,121 @@ static QStringList pyKeywords() { return {
 };}
 
 static QStringList ofKeywords() { return {
+    // ── Dictionary structure ──
+    "FoamFile","version","format","class","object","location",
     "boundaryField","internalField","dimensions","uniform","nonuniform",
     "type","value","gradient","refValue","refGradient","valueFraction",
-    "inletValue","freestreamValue","flowRate","massFlowRate",
-    "fixedValue","zeroGradient","fixedGradient","mixed","calculated",
+    "inletValue","outletValue","freestreamValue","phi","rho","rhoInlet",
+    "flowRate","massFlowRate","volumetricFlowRate","extrapolateProfile",
+    // ── Basic BCs ──
+    "fixedValue","uniformFixedValue","zeroGradient","fixedGradient",
+    "mixed","calculated","scaledFixedValue","uniformFixedGradient",
+    "fixedMean","prghPressure","fixedFluxPressure","fixedPressureCompressibleDensity",
+    "fixedFluxExtrapolatedPressure",
+    // ── Wall BCs ──
     "noSlip","slip","partialSlip","movingWallVelocity","rotatingWallVelocity",
+    "translatingWallVelocity","fixedNormalSlip","activeBaffleVelocity",
+    // ── Wall functions ──
+    "kqRWallFunction","epsilonWallFunction","omegaWallFunction",
+    "nutkWallFunction","nutUSpaldingWallFunction","nutkRoughWallFunction",
+    "nutURoughWallFunction","nutLowReWallFunction","nutUWallFunction",
+    "nutUBlendedWallFunction","nutUTabulatedWallFunction",
+    "kLowReWallFunction","alphatWallFunction",
+    // ── Inlet BCs ──
+    "flowRateInletVelocity","pressureInletOutletVelocity","pressureInletVelocity",
+    "pressureDirectedInletVelocity","pressureNormalInletOutletVelocity",
+    "surfaceNormalFixedValue","cylindricalInletVelocity",
+    "swirlFlowRateInletVelocity","turbulentIntensityKineticEnergyInlet",
+    "turbulentInlet","turbulentDFSEMInlet","turbulentDigitalFilterInlet",
+    "fixedProfile","interstitialInletVelocity","swirlFanVelocity",
+    "pressureDirectedInletOutletVelocity","pressureInletOutletParSlipVelocity",
+    "pressureInletUniformVelocity","pressurePIDControlInletVelocity",
+    "rotatingPressureInletOutletVelocity","variableHeightFlowRateInletVelocity",
+    "uniformNormalFixedValue",
+    // ── Outlet BCs ──
     "inletOutlet","outletInlet","advective","waveTransmissive",
-    "totalPressure","fixedFluxPressure","fixedMean","fanPressure",
-    "kqRWallFunction","epsilonWallFunction","omegaWallFunction","nutkWallFunction",
-    "empty","symmetry","wedge","cyclic","processor","patch","wall",
+    "freestream","freestreamVelocity","freestreamPressure",
+    "supersonicFreestream","outletMappedUniformInlet",
+    "flowRateOutletVelocity","matchedFlowRateOutletVelocity",
+    "outletPhaseMeanVelocity","outletMachNumberPressure",
+    "acousticWaveTransmissive","fixedMeanOutletInlet",
+    "fluxCorrectedVelocity","uniformInletOutlet",
+    // ── Pressure BCs ──
+    "totalPressure","uniformTotalPressure","prghTotalPressure",
+    "fanPressure","uniformDensityHydrostaticPressure",
+    "prghTotalHydrostaticPressure","plenumPressure",
+    "rotatingTotalPressure","syringePressure","waveSurfacePressure",
+    "variableHeightFlowRate","phaseHydrostaticPressure",
+    "prghPermeableAlphaTotalPressure",
+    // ── Temperature ──
+    "totalTemperature","inletOutletTotalTemperature",
+    // ── Mapped / Coupled ──
+    "mappedFixedValue","timeVaryingMappedFixedValue","mappedMixed",
+    "mappedFlowRate","mappedFixedInternalValue","mappedVelocityFluxFixedValue",
+    // ── Coded ──
+    "codedFixedValue","codedMixed",
+    // ── Jump / Special ──
+    "fixedJump","fixedJumpAMI","uniformJump","uniformJumpAMI",
+    "interfaceCompression",
+    // ── Constraint ──
+    "empty","symmetry","symmetryPlane","wedge","cyclic","cyclicAMI",
+    "cyclicACMI","cyclicSlip","processor","processorCyclic","patch","wall",
+    // ── Schemes ──
     "ddtSchemes","gradSchemes","divSchemes","laplacianSchemes",
     "interpolationSchemes","snGradSchemes","fluxRequired",
     "Euler","backward","steadyState","CrankNicolson","localEuler",
     "Gauss","linear","leastSquares","corrected","orthogonal","limited",
     "limitedLinear","linearUpwind","upwind","vanLeer","QUICK","midPoint",
-    "solvers","relaxationFactors","PIMPLE","SIMPLE",
+    "cellLimited","cellMDLimited","pointCellsLeastSquares",
+    // ── Solvers ──
+    "solvers","relaxationFactors","PIMPLE","SIMPLE","PISO",
     "residualControl","nOuterCorrectors","nCorrectors","momentumPredictor",
-    "convertToMeters","vertices","blocks","edges","boundary",
-    "startFrom","startTime","stopAt","endTime","deltaT",
+    "nNonOrthogonalCorrectors","pRefCell","pRefValue","pRefPoint",
+    "tolerance","relTol","preconditioner","smoother",
+    "PCG","PBiCG","PBiCGStab","GAMG","smoothSolver",
+    "DIC","DILU","diagonal","DILUGaussSeidel","GaussSeidel",
+    // ── Mesh / blockMesh ──
+    "convertToMeters","vertices","blocks","edges","boundary","faces",
+    "neighbour","owner","points","arc","spline","polyLine","simpleGrading",
+    "hex","wedge","symmetryPlane","emptyPatch","wallPatch",
+    // ── controlDict ──
+    "application","startFrom","startTime","stopAt","endTime","deltaT",
     "writeControl","writeInterval","purgeWrite","writeFormat","writePrecision",
+    "writeCompression","timeFormat","timePrecision","runTimeModifiable",
+    "adjustTimeStep","maxCo","maxDeltaT","functions","libs",
+    "timeStep","clockTime","cpuTime","runTime","adjustableRunTime",
+    // ── decomposeParDict ──
     "numberOfSubdomains","method","simple","hierarchical","scotch","metis",
+    "manual","coeffs","n","preservePatches",
+    // ── snappyHexMesh ──
+    "castellatedMesh","snap","addLayers","geometry","refinementSurfaces",
+    "resolveFeatureAngle","features","refinementRegions","locationInMesh",
+    "maxGlobalCells","maxLocalCells","minRefinementCells","nCellsBetweenLevels",
+    "allowFreeStandingZoneFaces","nSmoothPatch","tolerance","nSolveIter",
+    "nRelaxIter","nSurfaceLayers","expansionRatio","finalLayerThickness",
+    "minThickness","featureAngle","slipFeatureAngle","maxNonOrtho",
+    "maxBoundarySkewness","maxInternalSkewness","maxConcave","minVol",
+    "minTetQuality","minArea","minTwist","mergeTolerance",
+    // ── Field names ──
+    "U","p","p_rgh","k","epsilon","omega","nut","alphat","T","alpha",
+    "phi","rho","thermo:mu","thermo:psi","thermo:alpha","Cp","Cv",
+    "nuTilda","R","tau","vorticity","Q","yPlus","wallShearStress",
+    // ── Turbulence model names ──
+    "laminar","kEpsilon","kOmega","kOmegaSST","kOmegaSSTLM",
+    "RNGkEpsilon","realizableKE","LaunderSharmaKE","kOmega2006",
+    "v2f","LRR","SSG","EBRSM",
+    "Smagorinsky","WALE","dynamicKEqn","kEqn","dynamicLagrangian",
+    "DeardorffDiffStress","SpalartAllmaras",
+    // ── Turbulence parameters ──
+    "Cmu","C1","C2","C3","Ceps2","sigmak","sigmaEps","sigmaOmega",
+    "alphaK1","alphaOmega1","alphaOmega2","beta1","beta2","betaStar",
+    "gamma1","gamma2","Ce","Ck","Bk","kappa","E","Prt","Prt",
+    "turbulence","printCoeffs","RAS","LES",
+    // ── Common OpenFOAM objects ──
+    "runTime","mesh","time","argList","Info","Warning","FatalError",
+    "IOdictionary","IOobject","IOField","autoPtr","tmp","PtrList",
+    "Switch","word","scalar","vector","tensor","symmTensor","sphericalTensor",
+    "label","HashTable","dictionary","Foam","endl","nl","tab",
 };}
 
 // ── Constructor ─────────────────────────────────────────────────
