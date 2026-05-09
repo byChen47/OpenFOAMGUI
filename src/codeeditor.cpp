@@ -424,14 +424,31 @@ void CodeEditor::insertCompletion(const QString &text)
 
 void CodeEditor::keyPressEvent(QKeyEvent *e)
 {
-    // Let completer handle its own keys
+    // Handle completer popup keys
     if (m_completer && m_completer->popup()->isVisible()) {
         switch (e->key()) {
         case Qt::Key_Enter:
         case Qt::Key_Return:
         case Qt::Key_Tab:
+            // Accept the current completion
+            {
+                QString prefix = m_completer->completionPrefix();
+                QStringListModel *model = qobject_cast<QStringListModel*>(m_completer->completionModel());
+                if (model && model->rowCount() > 0) {
+                    // Find the first matching item
+                    for (int i = 0; i < model->rowCount(); ++i) {
+                        QString item = model->data(model->index(i, 0)).toString();
+                        if (item.startsWith(prefix, Qt::CaseInsensitive)) {
+                            insertCompletion(item);
+                            break;
+                        }
+                    }
+                }
+            }
+            m_completer->popup()->hide();
+            return;
         case Qt::Key_Escape:
-            e->ignore();
+            m_completer->popup()->hide();
             return;
         default:
             break;
