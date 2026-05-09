@@ -1,0 +1,45 @@
+site_name: OpenFOAM GUI
+site_description: A CFD case manager and editor for OpenFOAM, built with Qt 6.10.2
+site_author: byChen47
+repo_url: https://github.com/byChen47/OpenFOAMGUI
+repo_name: byChen47/OpenFOAMGUI
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Features: features.md
+  - Usage Guide: usage.md
+  - Build Instructions: build.md
+  - Project Structure: structure.md
+  - Changelog: changelog.md
