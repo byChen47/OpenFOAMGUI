@@ -257,9 +257,31 @@ void CodeEditor::setupCompleter()
 QStringList CodeEditor::completionWords() const
 {
     QStringList words;
-    if (m_acCpp)     words += cppKeywords();
-    if (m_acPython)  words += pyKeywords();
-    if (m_acOF)      words += ofKeywords();
+    // Strictly separate by file language — toggles only affect relevant language
+    switch (m_language) {
+    case FileLanguage::Python:
+        if (m_acPython) words = pyKeywords();
+        break;
+    case FileLanguage::Cpp:
+    case FileLanguage::CppHeader:
+    case FileLanguage::C:
+        if (m_acCpp) words = cppKeywords();
+        break;
+    case FileLanguage::OpenFOAM:
+        if (m_acOF) words = ofKeywords();
+        if (m_acCpp) words += cppKeywords(); // OF files also use C++/OF classes
+        break;
+    case FileLanguage::CMake:
+    case FileLanguage::Bash:
+        if (m_acCpp) words = cppKeywords();
+        break;
+    default:
+        // Unknown — use all enabled sets
+        if (m_acCpp)    words += cppKeywords();
+        if (m_acPython) words += pyKeywords();
+        if (m_acOF)     words += ofKeywords();
+        break;
+    }
     words.removeDuplicates();
     return words;
 }
