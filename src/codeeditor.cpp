@@ -504,8 +504,9 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
                 if (closePos >= 0 && pos > closePos) {
                     // Already past closing delimiter
                 } else {
-                    // Prefix includes delimiter: <iostre or "iostre
-                    QString typed = line.mid(delimPos, pos - delimPos);
+                    // Prefix WITHOUT delimiter: just the identifier (e.g. "iostre")
+                    // Model has full headers with brackets (e.g. "<iostream>")
+                    QString typed = line.mid(delimPos + 1, pos - delimPos - 1).trimmed();
                     m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
                     m_completer->setCompletionPrefix(typed);
                     if (m_completer->completionCount() > 0) {
