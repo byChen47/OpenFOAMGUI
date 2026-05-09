@@ -1428,7 +1428,7 @@ static void showTerminalOutput(QWidget *parent, const QString &title,
     // ── Title bar (VSCode-style) ──
     auto *titleBar = new QWidget();
     titleBar->setStyleSheet(exitCode == 0
-        ? "background: #0077B6;"
+        ? "background: #0078D7;"
         : "background: #C72E2E;");
     auto *tb = new QHBoxLayout(titleBar);
     tb->setContentsMargins(14, 9, 14, 9);
@@ -1480,7 +1480,7 @@ static void showTerminalOutput(QWidget *parent, const QString &title,
     // ── Footer (VSCode status bar style) ──
     auto *footer = new QWidget();
     footer->setStyleSheet(exitCode == 0
-        ? "background: #0077B6; border-top: none;"
+        ? "background: #0078D7; border-top: none;"
         : "background: #C72E2E; border-top: none;");
     auto *fb = new QHBoxLayout(footer);
     fb->setContentsMargins(14, 5, 14, 5);
