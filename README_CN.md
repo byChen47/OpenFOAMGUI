@@ -1,8 +1,6 @@
 # OpenFOAM GUI
 
-基于 Qt 6.10.2 的 OpenFOAM CFD 算例管理器与编辑器。
-
-支持语法高亮、自动补全、算例结构感知和集成化配置面板。
+基于 Qt 6.10.2 的专业 CFD 算例管理器与编辑器。
 
 ---
 
@@ -10,155 +8,133 @@
 
 | 模块 | 说明 |
 |------|------|
-| **算例浏览器** | 树形浏览 `0/`、`constant/`、`system/`，大算例延迟加载 |
-| **代码编辑器** | 多标签页、语法高亮、行号、自动补全、自动缩进 |
-| **自动补全** | C++（200+ STL）、Python、OpenFOAM（250+ BC/格式）— 可独立开关 |
-| **边界条件** | RTM 参数表、Patch 浏览器、100+ BC 类型 |
-| **湍流模型** | RAS/LES 模型选择与参数配置 |
-| **离散格式与求解器** | 结构化编辑 `fvSchemes` 和 `fvSolution` |
-| **snappyHexMesh** | 完整 snappyHexMeshDict 配置 |
-| **通用字典** | blockMeshDict、controlDict、decomposeParDict 等 |
-| **Sync Boundaries** | 一键同步 blockMeshDict 边界到所有 0/ 场文件 |
-| **文件查看器** | PNG/JPG/SVG/EPS 图片缩放查看；PDF/Office 调用系统默认程序 |
-| **Run Python** | 编辑器运行 Python 脚本，可配置解释器路径 |
-| **ParaView** | 一键启动、自动检测、下载引导 |
+| **算例浏览器** | 延迟加载树形视图，多算例、过滤、多格式文件支持 |
+| **代码编辑器** | 多标签页、语法高亮、行号、三类自动补全、自动缩进 |
+| **C++ 自动补全** | 200+ 关键词：STL 容器、算法、智能指针、流、C 标准库 |
+| **Python 自动补全** | Python 3 关键词、内置函数、numpy/pandas 提示 |
+| **OpenFOAM 自动补全** | 250+ 关键词：全部 BC 类型、格式、求解器、snappyHexMesh、湍流模型 |
+| **#include 头文件** | 输入 `#include <` 触发 50+ 头文件建议 |
+| **边界条件** | RTM 参数表、100+ BC 类型、Patch 浏览器、智能推荐 |
+| **湍流模型** | RAS/LES 模型选择，模型参数配置 |
+| **格式与求解器** | 结构化编辑 `fvSchemes` 和 `fvSolution` |
+| **snappyHexMesh** | 完整 `snappyHexMeshDict` 配置面板 |
+| **通用字典** | `blockMeshDict`、`controlDict`、`decomposeParDict` 等 |
+| **Sync Boundaries** | 一键同步 `blockMeshDict` 边界 → 全部 `0/` 场文件 |
+| **文件查看器** | PNG/JPG/SVG/EPS（缩放）；PDF/Office 调用系统默认 |
+| **Run Python** | 编辑器运行 `.py` 脚本，可配置解释器路径 |
+| **Run C++** | `g++ -std=c++17 -O2` 编译运行，可配置编译器路径 |
+| **ParaView** | 一键启动、自动 `.foam`、路径配置、下载引导 |
 | **终端** | 算例目录打开系统终端 |
-| **自定义工具栏** | 拖拽排序、View 菜单开关、一键恢复默认布局 |
+| **自定义工具栏** | 拖拽排序、View 菜单开关、恢复默认布局 |
 
 ---
 
-## 快速开始
+## 快捷键
 
-1. 启动 `OpenFOAMGUI.exe`
-2. **Case → Open Case** (`Ctrl+O`) 选择算例
-3. 双击 Case Browser 中的文件进行编辑
-4. 右侧面板自动切换上下文（BC/湍流/格式/snappyHexMesh/字典）
-5. **View → 3D Mesh Viewer**（底部 Dock）查看网格几何
-
----
-
-## 编辑器功能
-
-| 快捷键 | 操作 |
-|--------|------|
+| 按键 | 操作 |
+|------|------|
 | `Ctrl+O` | 打开算例 |
 | `Ctrl+S` | 保存 |
 | `Ctrl+W` | 关闭标签 |
 | `Ctrl+F` | 查找 |
-| `Ctrl+/` | 注释/取消注释 |
-| `Ctrl+Z` / `Ctrl+Y` | 撤销 / 重做 |
+| `Ctrl+/` | 注释切换 |
+| `Ctrl+Z/Y` | 撤销/重做 |
+| `Ctrl+B` | BC 面板 |
 | `Ctrl+Shift+P` | 运行 Python |
-| `Ctrl+B` | 切换 BC 面板 |
+| `Ctrl+Shift+C` | 运行 C++ |
 
-**自动补全** — Edit 菜单独立控制 C++、Python、OpenFOAM 三类补全。
-输入 `#include <` 触发头文件建议。
+---
 
-**自动缩进** — Enter 保持当前缩进。空行输入 `{` 自动生成格式化代码块。
-光标在 `{}` 内按 Enter 时 `}` 推到下一行。
+## 编辑器
+
+**自动补全** — Edit 菜单独立控制 C++、Python、OpenFOAM 三类。输入 2+ 字符触发。
+
+**自动缩进** — Enter 保持缩进。空行 `{` 生成格式化代码块。`{}` 中按 Enter 推下 `}`。
+
+**#include 头文件** — `#include <` 后触发 50+ 头文件建议，输入过滤。
 
 ---
 
 ## Sync Boundaries
 
-`View → Sync Boundaries` 将 `blockMeshDict` 的边界名称同步到 `0/`（或 `0.orig/`）的所有场文件。已打开编辑器标签页中的文件自动刷新。
-
-### 默认 BC 分配
+`View → Sync Boundaries` 将 blockMesh 边界名同步到 `0/` 或 `0.orig/`。已打开编辑器标签自动刷新。
 
 | Patch 类型 | 场 | 默认 BC |
 |-----------|-----|---------|
-| `wall` | U, v | `noSlip` |
-| `wall` | p, p_rgh | `fixedFluxPressure` |
+| `wall` | U | `noSlip` |
+| `wall` | p/p_rgh | `fixedFluxPressure` |
 | `wall` | k | `kqRWallFunction` |
 | `wall` | epsilon | `epsilonWallFunction` |
 | `wall` | omega | `omegaWallFunction` |
 | `wall` | nut | `nutkWallFunction` |
-| `empty` | 任意 | `empty` |
-| `symmetry` | 任意 | `symmetry` |
-| `wedge` | 任意 | `wedge` |
-| `cyclic` | 任意 | `cyclic` |
+| `empty`/`symmetry`/`wedge`/`cyclic` | 任意 | 同类型 |
 
 ---
 
 ## 文件查看器
 
-| 类别 | 扩展名 | 查看方式 |
-|------|--------|---------|
-| 光栅图片 | PNG, JPG, BMP, GIF, WebP, ICO | 原生查看 + 缩放 (− / + / Fit / 1:1) |
-| SVG | SVG | QSvgWidget 渲染 |
-| EPS | EPS, EPSF, PS | Ghostscript → PNG（自动检测） |
-| PDF | PDF | 系统默认 |
-| Office | DOC, DOCX, XLS, XLSX, PPT, PPTX | 系统默认 |
+| 格式 | 查看方式 |
+|------|---------|
+| PNG, JPG, BMP, GIF, WebP, ICO | 原生缩放 (− / + / Fit / 1:1) |
+| SVG | QSvgWidget |
+| EPS, EPSF, PS | Ghostscript → PNG（自动检测） |
+| PDF, DOC, DOCX, XLS, XLSX | 系统默认程序 |
 
 ---
 
-## ParaView 集成
+## ParaView
 
 - **Case → ParaView** 启动 ParaView，自动创建 `.foam` 文件
-- 自动检测 ParaView 路径；可手动配置 **Case → ParaView Path...**
-- 未安装时弹窗提示下载地址
-
----
-
-## 工具栏自定义
-
-- 拖拽按钮重新排序
-- **View 菜单**控制各按钮显示/隐藏
-- **View → Reset Default Layout** 恢复默认排列
+- 配置路径：**Case → ParaView Path...**
+- 未安装时提示下载地址
 
 ---
 
 ## 环境要求
 
 - **Qt 6.10.2** (MinGW 64-bit)
-- **MinGW-w64** (GCC 15.2.0+)
-- **OpenFOAM** (v2012 ~ v2512)
+- **MinGW-w64** (GCC 15.2+)
+- **OpenFOAM** (v2012–v2512)
 - **ParaView** 5.10+（可选）
-- **Ghostscript**（可选，用于 EPS；TeX Live 自带）
+- **Python** 3.x（可选，Run Python）
+- **g++**（可选，Run C++；MinGW 自带）
 
 ## 编译
 
 ```bash
 qmake OpenFOAMGUI.pro
 mingw32-make -f Makefile.Release
-# 输出：release/OpenFOAMGUI.exe
 ```
 
 **Qt 模块**：Core, GUI, Widgets, SvgWidgets
-**C++17** with `-std=gnu++1z`
+**标准**：C++17
 
 ---
 
 ## 项目结构
 
 ```
-OpenFOAMGUI/
-├── src/
-│   ├── main.cpp                       # 入口
-│   ├── mainwindow.h/.cpp              # 主窗口、菜单、工具栏、Dock
-│   ├── casebrowser.h/.cpp             # 算例目录树浏览器
-│   ├── codeeditor.h/.cpp              # 编辑器 + 自动补全
-│   ├── fileviewer.h/.cpp              # 图片/EPS/PDF/Office 查看器
-│   ├── ofhighlighter.h/.cpp           # 语法高亮器
-│   ├── ofparser.h/.cpp                # 文件解析器
-│   ├── ofmeshreader.h/.cpp            # OpenFOAM polyMesh 读取器
-│   ├── languagedetector.h/.cpp        # 语言检测
-│   ├── linenumberarea.h/.cpp          # 行号边栏
-│   ├── bcpanel.h/.cpp                 # 边界条件面板
-│   ├── bctypedatabase.h/.cpp          # 100+ BC 类型数据库
-│   ├── turbulencepanel.h/.cpp         # 湍流模型面板
-│   ├── turbulencemodeldatabase.h/.cpp # 湍流模型定义
-│   ├── schemespanel.h/.cpp            # 离散格式面板
-│   ├── snappypanel.h/.cpp             # snappyHexMesh 面板
-│   ├── dictpanel.h/.cpp               # 通用字典面板
-│   └── bychen.ico                     # 应用图标
-├── OpenFOAMGUI.pro                    # Qt 项目文件
-├── resources.qrc                      # Qt 资源
-├── qt.conf                            # 插件路径
-├── README.md
-├── README_CN.md
-└── CHANGELOG.md
+src/
+├── main.cpp                  入口
+├── mainwindow.h/.cpp         主窗口、菜单、工具栏、Dock
+├── casebrowser.h/.cpp        算例树（延迟加载）
+├── codeeditor.h/.cpp         编辑器 + 自动补全
+├── fileviewer.h/.cpp         图片/EPS/PDF/Office 查看器
+├── ofhighlighter.h/.cpp      OpenFOAM/C++ 语法高亮
+├── ofparser.h/.cpp           OpenFOAM 文件解析
+├── ofmeshreader.h/.cpp       OpenFOAM polyMesh 读取
+├── languagedetector.h/.cpp   语言检测
+├── linenumberarea.h/.cpp     行号边栏
+├── bcpanel.h/.cpp            边界条件面板
+├── bctypedatabase.h/.cpp     100+ BC 类型数据库
+├── turbulencepanel.h/.cpp    湍流模型面板
+├── turbulencemodeldatabase.h/.cpp
+├── schemespanel.h/.cpp       fvSchemes/fvSolution 面板
+├── snappypanel.h/.cpp        snappyHexMeshDict 面板
+├── dictpanel.h/.cpp          通用字典面板
+└── bychen.ico                应用图标
 ```
 
 ## 许可证
 
-本项目仅供 CFD 工作流程中的教育和研究用途。
+CFD 工作流中的教育和研究用途。
