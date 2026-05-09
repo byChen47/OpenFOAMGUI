@@ -410,10 +410,9 @@ QString CodeEditor::wordUnderCursor() const
 void CodeEditor::insertCompletion(const QString &text)
 {
     QTextCursor tc = textCursor();
-    int extra = text.length() - m_completer->completionPrefix().length();
-    tc.movePosition(QTextCursor::Left);
-    tc.movePosition(QTextCursor::EndOfWord);
-    tc.insertText(text.right(extra));
+    // Replace the entire word under cursor with the selected completion
+    tc.select(QTextCursor::WordUnderCursor);
+    tc.insertText(text);
     setTextCursor(tc);
 }
 
