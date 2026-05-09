@@ -464,22 +464,42 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
         return;
     }
 
-    // ── Header file completion after #include < ──
-    QString ctx = wordUnderCursor();
-    if (ctx == "<" || ctx == "\"") {
-        // Check if we're after #include
+    // ── Header file completion after #include ──
+    {
         QTextCursor tc = textCursor();
         tc.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
-        QString line = tc.selectedText().trimmed();
-        if (line.startsWith("#include")) {
-            m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
-            m_completer->setCompletionPrefix(ctx == "<" ? "<" : "\"");
-            if (m_completer->completionCount() > 0) {
-                QRect cr = cursorRect();
-                cr.setWidth(350);
-                m_completer->complete(cr);
+        QString line = tc.selectedText();
+        if (line.contains("#include")) {
+            int pos = textCursor().positionInBlock();
+            // Determine prefix: everything after < or " up to cursor
+            int lt = line.indexOf('<');
+            int qt = line.indexOf('"');
+            int delimPos = (lt >= 0 && (qt < 0 || lt < qt)) ? lt : qt;
+            if (delimPos >= 0 && pos > delimPos) {
+                QString typed = line.mid(delimPos + 1, pos - delimPos - 1).trimmed();
+                // Don't show completion if we're past the closing > or "
+                if (typed.isEmpty() || (typed.length() < 2 && pos <= delimPos + 2)) {
+                    // Show all headers when just typed < or "
+                    m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
+                    m_completer->setCompletionPrefix(typed.isEmpty() ? "" : typed);
+                    if (m_completer->completionCount() > 0) {
+                        QRect cr = cursorRect();
+                        cr.setWidth(380);
+                        m_completer->complete(cr);
+                    }
+                    return;
+                } else if (!typed.contains('>') && !typed.contains('"')) {
+                    // User is typing a header name — filter as they type
+                    m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
+                    m_completer->setCompletionPrefix(typed);
+                    if (m_completer->completionCount() > 0) {
+                        QRect cr = cursorRect();
+                        cr.setWidth(380);
+                        m_completer->complete(cr);
+                    }
+                    return;
+                }
             }
-            return;
         }
     }
 
