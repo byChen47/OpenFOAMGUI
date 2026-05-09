@@ -379,18 +379,18 @@ void CodeEditor::handleBraceCompletion()
 // ── Header file completions ──
 static QStringList headerFiles() { return {
     // C standard
-    "assert.h","ctype.h","errno.h","float.h","limits.h","math.h",
-    "stddef.h","stdio.h","stdlib.h","string.h","time.h",
+    "<assert.h>","<ctype.h>","<errno.h>","<float.h>","<limits.h>","<math.h>",
+    "<stddef.h>","<stdio.h>","<stdlib.h>","<string.h>","<time.h>",
     // C++ standard
-    "algorithm","array","atomic","bitset","chrono","cmath",
-    "complex","deque","exception","filesystem","forward_list",
-    "fstream","functional","future","initializer_list","iomanip",
-    "ios","iostream","istream","iterator","list","map",
-    "memory","mutex","numeric","optional","ostream","queue",
-    "random","ranges","regex","set","span","sstream","stack",
-    "stdexcept","streambuf","string","string_view","strstream",
-    "thread","tuple","type_traits","unordered_map","unordered_set",
-    "utility","variant","vector",
+    "<algorithm>","<array>","<atomic>","<bitset>","<chrono>","<cmath>",
+    "<complex>","<deque>","<exception>","<filesystem>","<forward_list>",
+    "<fstream>","<functional>","<future>","<initializer_list>","<iomanip>",
+    "<ios>","<iostream>","<istream>","<iterator>","<list>","<map>",
+    "<memory>","<mutex>","<numeric>","<optional>","<ostream>","<queue>",
+    "<random>","<ranges>","<regex>","<set>","<span>","<sstream>","<stack>",
+    "<stdexcept>","<streambuf>","<string>","<string_view>","<strstream>",
+    "<thread>","<tuple>","<type_traits>","<unordered_map>","<unordered_set>",
+    "<utility>","<variant>","<vector>",
     // OpenFOAM
     "argList.H","autoPtr.H","dictionary.H","dimensionedType.H",
     "fvCFD.H","fvMesh.H","fvPatchField.H","IOdictionary.H","IOobject.H",
@@ -412,7 +412,7 @@ void CodeEditor::insertCompletion(const QString &text)
     QTextCursor tc = textCursor();
     int pos = tc.positionInBlock();
     QString line = tc.block().text();
-    // Find start of the identifier being completed (letters, digits, _, ., -)
+    // Find start of text to replace (letters, digits, _, ., -)
     int start = pos;
     while (start > 0) {
         QChar ch = line[start - 1];
@@ -420,6 +420,11 @@ void CodeEditor::insertCompletion(const QString &text)
             start--;
         else
             break;
+    }
+    // If completion includes < or ", also replace the opening delimiter
+    if ((text.startsWith('<') || text.startsWith('"')) && start > 0) {
+        QChar delim = text.at(0);
+        if (line[start - 1] == delim) start--; // include the < or "
     }
     tc.setPosition(tc.block().position() + start);
     tc.setPosition(tc.block().position() + pos, QTextCursor::KeepAnchor);
@@ -488,33 +493,24 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
         QString line = tc.selectedText();
         if (line.contains("#include")) {
             int pos = textCursor().positionInBlock();
-            // Determine delimiter and prefix after it
             int lt = line.indexOf('<');
             int qt = line.indexOf('"');
             int delimPos = (lt >= 0 && (qt < 0 || lt < qt)) ? lt : qt;
             if (delimPos >= 0 && pos > delimPos) {
-                QString typed = line.mid(delimPos + 1, pos - delimPos - 1).trimmed();
                 // Check if already closed
-                int closePos = line.indexOf(line[delimPos] == '<' ? '>' : '"', delimPos + 1);
+                QChar delim = line[delimPos];
+                QChar closeChar = (delim == '<') ? '>' : '"';
+                int closePos = line.indexOf(closeChar, delimPos + 1);
                 if (closePos >= 0 && pos > closePos) {
-                    // Already past the closing delimiter, don't complete
-                } else if (typed.length() < 2 && pos <= delimPos + 2) {
-                    // Just typed < or " — show all headers
-                    m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
-                    m_completer->setCompletionPrefix("");
-                    if (m_completer->completionCount() > 0) {
-                        QRect cr = cursorRect();
-                        cr.setWidth(300);
-                        m_completer->complete(cr);
-                    }
-                    return;
-                } else if (!typed.isEmpty()) {
-                    // User is typing — filter
+                    // Already past closing delimiter
+                } else {
+                    // Prefix includes delimiter: <iostre or "iostre
+                    QString typed = line.mid(delimPos, pos - delimPos);
                     m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
                     m_completer->setCompletionPrefix(typed);
                     if (m_completer->completionCount() > 0) {
                         QRect cr = cursorRect();
-                        cr.setWidth(300);
+                        cr.setWidth(380);
                         m_completer->complete(cr);
                     }
                     return;
