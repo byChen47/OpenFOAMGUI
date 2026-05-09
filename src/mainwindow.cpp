@@ -1479,7 +1479,9 @@ static void showTerminalOutput(QWidget *parent, const QString &title,
 
     // ── Footer (VSCode status bar style) ──
     auto *footer = new QWidget();
-    footer->setStyleSheet("background: #007ACC; border-top: none;");
+    footer->setStyleSheet(exitCode == 0
+        ? "background: #0077B6; border-top: none;"
+        : "background: #C72E2E; border-top: none;");
     auto *fb = new QHBoxLayout(footer);
     fb->setContentsMargins(14, 5, 14, 5);
     auto *infoLbl = new QLabel(info);
