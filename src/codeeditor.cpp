@@ -410,8 +410,14 @@ QString CodeEditor::wordUnderCursor() const
 void CodeEditor::insertCompletion(const QString &text)
 {
     QTextCursor tc = textCursor();
-    // Replace the entire word under cursor with the selected completion
-    tc.select(QTextCursor::WordUnderCursor);
+    // Replace the prefix length with the full completion (preserving exact case)
+    int prefixLen = m_completer->completionPrefix().length();
+    if (prefixLen > 0) {
+        tc.movePosition(QTextCursor::Left, QTextCursor::MoveAnchor, prefixLen);
+        tc.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, prefixLen);
+    } else {
+        tc.select(QTextCursor::WordUnderCursor);
+    }
     tc.insertText(text);
     setTextCursor(tc);
 }
