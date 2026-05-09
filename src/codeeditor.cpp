@@ -410,9 +410,19 @@ QString CodeEditor::wordUnderCursor() const
 void CodeEditor::insertCompletion(const QString &text)
 {
     QTextCursor tc = textCursor();
-    // Select the identifier/word to the left of cursor and replace
-    tc.movePosition(QTextCursor::StartOfWord, QTextCursor::MoveAnchor);
-    tc.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
+    int pos = tc.positionInBlock();
+    QString line = tc.block().text();
+    // Find start of the identifier being completed (letters, digits, _, ., -)
+    int start = pos;
+    while (start > 0) {
+        QChar ch = line[start - 1];
+        if (ch.isLetterOrNumber() || ch == '_' || ch == '.' || ch == '-')
+            start--;
+        else
+            break;
+    }
+    tc.setPosition(tc.block().position() + start);
+    tc.setPosition(tc.block().position() + pos, QTextCursor::KeepAnchor);
     tc.insertText(text);
     setTextCursor(tc);
 }
