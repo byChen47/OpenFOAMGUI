@@ -379,25 +379,25 @@ void CodeEditor::handleBraceCompletion()
 // ── Header file completions ──
 static QStringList headerFiles() { return {
     // C standard
-    "<assert.h>","<ctype.h>","<errno.h>","<float.h>","<limits.h>","<math.h>",
-    "<stddef.h>","<stdio.h>","<stdlib.h>","<string.h>","<time.h>",
+    "assert.h","ctype.h","errno.h","float.h","limits.h","math.h",
+    "stddef.h","stdio.h","stdlib.h","string.h","time.h",
     // C++ standard
-    "<algorithm>","<array>","<atomic>","<bitset>","<chrono>","<cmath>",
-    "<complex>","<deque>","<exception>","<filesystem>","<forward_list>",
-    "<fstream>","<functional>","<future>","<initializer_list>","<iomanip>",
-    "<ios>","<iostream>","<istream>","<iterator>","<list>","<map>",
-    "<memory>","<mutex>","<numeric>","<optional>","<ostream>","<queue>",
-    "<random>","<ranges>","<regex>","<set>","<span>","<sstream>","<stack>",
-    "<stdexcept>","<streambuf>","<string>","<string_view>","<strstream>",
-    "<thread>","<tuple>","<type_traits>","<unordered_map>","<unordered_set>",
-    "<utility>","<variant>","<vector>",
+    "algorithm","array","atomic","bitset","chrono","cmath",
+    "complex","deque","exception","filesystem","forward_list",
+    "fstream","functional","future","initializer_list","iomanip",
+    "ios","iostream","istream","iterator","list","map",
+    "memory","mutex","numeric","optional","ostream","queue",
+    "random","ranges","regex","set","span","sstream","stack",
+    "stdexcept","streambuf","string","string_view","strstream",
+    "thread","tuple","type_traits","unordered_map","unordered_set",
+    "utility","variant","vector",
     // OpenFOAM
-    "<argList.H>","<autoPtr.H>","<dictionary.H>","<dimensionedType.H>",
-    "<fvCFD.H>","<fvMesh.H>","<fvPatchField.H>","<IOdictionary.H>","<IOobject.H>",
-    "<OFstream.H>","<polyMesh.H>","<runTimeSelectionTable.H>","<Time.H>","<tmp.H>",
-    "<volFields.H>","<surfaceFields.H>","<pointFields.H>","<tensor.H>",
-    "<transform.H>","<wallDist.H>","<vector.H>","<scalar.H>","<Switch.H>",
-    "<forces.H>","<functionObject.H>","<messageStream.H>",
+    "argList.H","autoPtr.H","dictionary.H","dimensionedType.H",
+    "fvCFD.H","fvMesh.H","fvPatchField.H","IOdictionary.H","IOobject.H",
+    "OFstream.H","polyMesh.H","runTimeSelectionTable.H","Time.H","tmp.H",
+    "volFields.H","surfaceFields.H","pointFields.H","tensor.H",
+    "transform.H","wallDist.H","vector.H","scalar.H","Switch.H",
+    "forces.H","functionObject.H","messageStream.H",
 };}
 
 QString CodeEditor::wordUnderCursor() const
@@ -483,30 +483,33 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
         QString line = tc.selectedText();
         if (line.contains("#include")) {
             int pos = textCursor().positionInBlock();
-            // Determine prefix: everything after < or " up to cursor
+            // Determine delimiter and prefix after it
             int lt = line.indexOf('<');
             int qt = line.indexOf('"');
             int delimPos = (lt >= 0 && (qt < 0 || lt < qt)) ? lt : qt;
             if (delimPos >= 0 && pos > delimPos) {
                 QString typed = line.mid(delimPos + 1, pos - delimPos - 1).trimmed();
-                // Don't show completion if we're past the closing > or "
-                if (typed.isEmpty() || (typed.length() < 2 && pos <= delimPos + 2)) {
-                    // Show all headers when just typed < or "
+                // Check if already closed
+                int closePos = line.indexOf(line[delimPos] == '<' ? '>' : '"', delimPos + 1);
+                if (closePos >= 0 && pos > closePos) {
+                    // Already past the closing delimiter, don't complete
+                } else if (typed.length() < 2 && pos <= delimPos + 2) {
+                    // Just typed < or " — show all headers
                     m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
-                    m_completer->setCompletionPrefix(typed.isEmpty() ? "" : typed);
+                    m_completer->setCompletionPrefix("");
                     if (m_completer->completionCount() > 0) {
                         QRect cr = cursorRect();
-                        cr.setWidth(380);
+                        cr.setWidth(300);
                         m_completer->complete(cr);
                     }
                     return;
-                } else if (!typed.contains('>') && !typed.contains('"')) {
-                    // User is typing a header name — filter as they type
+                } else if (!typed.isEmpty()) {
+                    // User is typing — filter
                     m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
                     m_completer->setCompletionPrefix(typed);
                     if (m_completer->completionCount() > 0) {
                         QRect cr = cursorRect();
-                        cr.setWidth(380);
+                        cr.setWidth(300);
                         m_completer->complete(cr);
                     }
                     return;
