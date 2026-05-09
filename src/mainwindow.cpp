@@ -208,6 +208,14 @@ void MainWindow::createActions()
     m_pythonConfigAction = new QAction("Python &Path...", this);
     m_pythonConfigAction->setStatusTip("Configure the Python executable path");
 
+    m_cppAction = new QAction(makeIcon(QColor("#00599C"), "C++"),
+                              "Run &C++", this);
+    m_cppAction->setShortcut(QKeySequence("Ctrl+Shift+C"));
+    m_cppAction->setStatusTip("Compile and run the current C++ file");
+
+    m_cppConfigAction = new QAction("C++ Compiler &Path...", this);
+    m_cppConfigAction->setStatusTip("Configure the C++ compiler path (g++)");
+
     m_refreshAction = new QAction(s->standardIcon(QStyle::SP_BrowserReload),
                                   "&Refresh Case", this);
     m_refreshAction->setShortcut(QKeySequence("F5"));
@@ -301,6 +309,7 @@ void MainWindow::createMenus()
     addViewToggle("Show BC Panel",         m_bcPanelAction, true);
     addViewToggle("Show Terminal",         m_terminalAction, true);
     addViewToggle("Show Run Python",       m_pythonAction, true);
+    addViewToggle("Show Run C++",          m_cppAction, true);
     addViewToggle("Show Sync Boundaries",  m_syncBoundariesAction, true);
     addViewToggle("Show ParaView",         m_paraviewAction, true);
     m_viewMenu->addSeparator();
@@ -318,6 +327,7 @@ void MainWindow::createMenus()
         m_mainToolBar->addAction(m_bcPanelAction);
         m_mainToolBar->addAction(m_terminalAction);
         m_mainToolBar->addAction(m_pythonAction);
+        m_mainToolBar->addAction(m_cppAction);
         m_mainToolBar->addAction(m_syncBoundariesAction);
         m_mainToolBar->addAction(m_paraviewAction);
         // Re-apply View toggle state (if New File/Folder were checked, add them)
@@ -336,9 +346,11 @@ void MainWindow::createMenus()
     m_caseMenu->addAction(m_cleanTimeAction);
     m_caseMenu->addSeparator();
     m_caseMenu->addAction(m_pythonAction);
+    m_caseMenu->addAction(m_cppAction);
     m_caseMenu->addAction(m_paraviewAction);
     m_caseMenu->addAction(m_paraviewConfigAction);
     m_caseMenu->addAction(m_pythonConfigAction);
+    m_caseMenu->addAction(m_cppConfigAction);
     m_caseMenu->addSeparator();
     m_caseMenu->addAction(m_refreshAction);
 
@@ -371,6 +383,7 @@ void MainWindow::createToolBar()
     m_bcPanelAction->setObjectName("tbBCPanel");
     m_terminalAction->setObjectName("tbTerminal");
     m_pythonAction->setObjectName("tbRunPython");
+    m_cppAction->setObjectName("tbRunCpp");
     m_syncBoundariesAction->setObjectName("tbSyncBoundaries");
     m_paraviewAction->setObjectName("tbParaView");
     m_newFileAction->setObjectName("tbNewFile");
@@ -386,6 +399,7 @@ void MainWindow::createToolBar()
     m_mainToolBar->addAction(m_bcPanelAction);
     m_mainToolBar->addAction(m_terminalAction);
     m_mainToolBar->addAction(m_pythonAction);
+    m_mainToolBar->addAction(m_cppAction);
     m_mainToolBar->addAction(m_syncBoundariesAction);
     m_mainToolBar->addAction(m_paraviewAction);
 
@@ -524,9 +538,11 @@ void MainWindow::setupConnections()
     connect(m_cleanTimeAction, &QAction::triggered, this, &MainWindow::onCleanTimeDirs);
     connect(m_syncBoundariesAction, &QAction::triggered, this, &MainWindow::onSyncBoundaries);
     connect(m_pythonAction, &QAction::triggered, this, &MainWindow::onRunPython);
+    connect(m_cppAction, &QAction::triggered, this, &MainWindow::onRunCpp);
     connect(m_paraviewAction, &QAction::triggered, this, &MainWindow::onParaView);
     connect(m_paraviewConfigAction, &QAction::triggered, this, &MainWindow::onConfigureParaView);
     connect(m_pythonConfigAction, &QAction::triggered, this, &MainWindow::onConfigurePython);
+    connect(m_cppConfigAction, &QAction::triggered, this, &MainWindow::onConfigureCpp);
     connect(m_refreshAction, &QAction::triggered, this, &MainWindow::onRefreshCase);
     connect(m_aboutAction, &QAction::triggered, this, &MainWindow::onAbout);
 
@@ -1547,6 +1563,152 @@ void MainWindow::onConfigurePython()
     }
 }
 
+// ── Configure C++ compiler path ─────────────────────────────────
+void MainWindow::onConfigureCpp()
+{
+    QString path = QFileDialog::getOpenFileName(this, "Select C++ Compiler (g++)",
+        m_cppCompilerPath.isEmpty() ? "D:/3.Wpsandother/mingw64/bin" : QFileInfo(m_cppCompilerPath).absolutePath(),
+        "g++ (g++.exe);;All Files (*.*)");
+    if (!path.isEmpty()) {
+        m_cppCompilerPath = path;
+        saveSettings();
+        statusBar()->showMessage("C++ compiler path set: " + path, 5000);
+    }
+}
+
+// ── Run C++ ─────────────────────────────────────────────────────
+void MainWindow::onRunCpp()
+{
+    QString compilerPath = m_cppCompilerPath;
+    if (compilerPath.isEmpty() || !QFileInfo::exists(compilerPath)) {
+        // Auto-detect g++
+        compilerPath = QStandardPaths::findExecutable("g++");
+        if (compilerPath.isEmpty())
+            compilerPath = QStandardPaths::findExecutable("c++");
+        // Common MinGW/MSYS2 paths
+        QStringList paths = {
+            "D:/3.Wpsandother/mingw64/bin/g++.exe",
+            "C:/msys64/mingw64/bin/g++.exe",
+            "C:/mingw64/bin/g++.exe",
+        };
+        for (const auto &p : paths)
+            if (QFileInfo::exists(p)) { compilerPath = p; break; }
+    }
+
+    if (compilerPath.isEmpty()) {
+        QMessageBox::information(this, "Compiler Not Found",
+            "g++ compiler not found.\n\n"
+            "Configure the path via: Case → C++ Compiler Path...\n"
+            "Example: D:/mingw64/bin/g++.exe");
+        return;
+    }
+
+    CodeEditor *editor = currentEditor();
+    QString sourcePath;
+
+    if (editor && (editor->fileName().endsWith(".cpp", Qt::CaseInsensitive)
+                   || editor->fileName().endsWith(".cxx", Qt::CaseInsensitive)
+                   || editor->fileName().endsWith(".cc", Qt::CaseInsensitive)
+                   || editor->fileName().endsWith(".c", Qt::CaseInsensitive))) {
+        sourcePath = editor->fileName();
+        if (editor->document()->isModified())
+            saveEditor(editor);
+    } else {
+        sourcePath = QFileDialog::getOpenFileName(this, "Select C++ Source File",
+            QString(), "C++ Files (*.cpp *.cxx *.cc *.c);;All Files (*.*)");
+    }
+
+    if (sourcePath.isEmpty()) return;
+
+    QFileInfo srcInfo(sourcePath);
+    QString exePath = srcInfo.absolutePath() + "/" + srcInfo.completeBaseName() + ".exe";
+
+    // Compile
+    statusBar()->showMessage("Compiling: " + srcInfo.fileName(), 3000);
+
+    QProcess compile;
+    compile.setWorkingDirectory(srcInfo.absolutePath());
+    compile.start(compilerPath, {"-std=c++17", "-O2", "-o", exePath, sourcePath});
+
+    if (!compile.waitForFinished(30000)) {
+        QMessageBox::warning(this, "Compilation Timeout", "Compilation timed out.");
+        return;
+    }
+
+    QString compileErr = QString::fromUtf8(compile.readAllStandardError());
+    if (compile.exitCode() != 0) {
+        QMessageBox::warning(this, "Compilation Failed",
+            "Compilation failed with exit code " + QString::number(compile.exitCode()) + "\n\n" + compileErr);
+        statusBar()->showMessage("Compilation failed.", 5000);
+        return;
+    }
+
+    statusBar()->showMessage("Compiled OK. Running...", 3000);
+
+    // Run
+    QProcess run;
+    run.setWorkingDirectory(srcInfo.absolutePath());
+    run.start(exePath, {});
+
+    if (!run.waitForStarted(5000)) {
+        QMessageBox::warning(this, "Run Failed", "Failed to start: " + exePath);
+        return;
+    }
+
+    if (!run.waitForFinished(30000)) {
+        run.kill();
+        QMessageBox::warning(this, "Execution Timeout", "Program took too long and was terminated.");
+        return;
+    }
+
+    QString output = QString::fromUtf8(run.readAllStandardOutput());
+    QString errors = QString::fromUtf8(run.readAllStandardError());
+    int exitCode = run.exitCode();
+
+    // Show output dialog
+    QDialog dlg(this);
+    dlg.setWindowTitle("C++ Output");
+    dlg.resize(700, 500);
+    dlg.setMinimumSize(400, 300);
+
+    auto *dl = new QVBoxLayout(&dlg);
+    dl->setContentsMargins(12, 12, 12, 12);
+    dl->setSpacing(8);
+
+    auto *hdr = new QLabel(exitCode == 0 ? "Program completed" : "Program exited with errors");
+    hdr->setStyleSheet(exitCode == 0
+        ? "font-size: 14px; font-weight: bold; color: #388E3C;"
+        : "font-size: 14px; font-weight: bold; color: #D32F2F;");
+    dl->addWidget(hdr);
+
+    QString result;
+    if (!output.isEmpty()) result += output;
+    if (!errors.isEmpty()) { if (!result.isEmpty()) result += "\n\n"; result += "--- STDERR ---\n" + errors; }
+    if (result.isEmpty()) result = "(no output)";
+
+    auto *te = new QTextEdit();
+    te->setReadOnly(true);
+    te->setFont(QFont("Consolas", 10));
+    te->setStyleSheet("QTextEdit{background:#1E1E1E;color:#DCDCDC;border:1px solid #333;border-radius:4px;padding:8px;}");
+    te->setPlainText(result.trimmed().isEmpty() ? "(no output)" : result);
+    dl->addWidget(te, 1);
+
+    auto *footer = new QHBoxLayout();
+    auto *inf = new QLabel(QString("Source: %1   |   Exit: %2").arg(srcInfo.fileName()).arg(exitCode));
+    inf->setStyleSheet("color:#888;font-size:11px;");
+    footer->addWidget(inf);
+    footer->addStretch();
+    auto *closeBtn = new QPushButton("Close");
+    closeBtn->setFixedWidth(80);
+    closeBtn->setStyleSheet("QPushButton{padding:6px 16px;background:#0078D7;color:white;border:none;border-radius:3px;}");
+    connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    footer->addWidget(closeBtn);
+    dl->addLayout(footer);
+    dlg.exec();
+
+    statusBar()->showMessage(QString("C++ exit code: %1").arg(exitCode), 5000);
+}
+
 void MainWindow::onParaView()
 {
     QStringList cases = m_caseBrowser->casePaths();
@@ -1834,7 +1996,8 @@ void MainWindow::loadSettings()
     QSettings settings;
     m_recentCases = settings.value("recentCases").toStringList();
     m_paraviewPath = settings.value("paraviewPath").toString();
-    m_pythonPath   = settings.value("pythonPath").toString();
+    m_pythonPath       = settings.value("pythonPath").toString();
+    m_cppCompilerPath  = settings.value("cppCompilerPath").toString();
     restoreGeometry(settings.value("geometry").toByteArray());
     restoreState(settings.value("windowState").toByteArray());
     updateRecentCasesMenu();
@@ -1845,7 +2008,8 @@ void MainWindow::saveSettings()
     QSettings settings;
     settings.setValue("recentCases", m_recentCases);
     settings.setValue("paraviewPath", m_paraviewPath);
-    settings.setValue("pythonPath",   m_pythonPath);
+    settings.setValue("pythonPath",       m_pythonPath);
+    settings.setValue("cppCompilerPath",  m_cppCompilerPath);
     settings.setValue("geometry", saveGeometry());
     settings.setValue("windowState", saveState());
 }

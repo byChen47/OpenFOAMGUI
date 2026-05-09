@@ -58,6 +58,8 @@ private slots:
     void onSyncBoundaries();
     void onRunPython();
     void onConfigurePython();
+    void onRunCpp();
+    void onConfigureCpp();
 
 private:
     void createActions();
@@ -133,6 +135,8 @@ private:
     QAction *m_paraviewAction;
     QAction *m_pythonConfigAction;
     QAction *m_paraviewConfigAction;
+    QAction *m_cppAction;
+    QAction *m_cppConfigAction;
     QAction *m_refreshAction;
     QAction *m_bcPanelAction;
     QAction *m_terminalAction;
@@ -144,6 +148,7 @@ private:
     QStringList m_recentCases;
     QString     m_paraviewPath;
     QString     m_pythonPath;
+    QString     m_cppCompilerPath;
     static const int MaxRecentCases = 10;
 };
 
