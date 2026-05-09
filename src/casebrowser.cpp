@@ -2,6 +2,9 @@
 #include "ofparser.h"
 
 #include <QHeaderView>
+#include <QMenu>
+#include <QVBoxLayout>
+#include <QPushButton>
 #include <QFileInfo>
 #include <QDirIterator>
 #include <QRegularExpression>

@@ -3,13 +3,9 @@
 
 #include <QWidget>
 #include <QTreeWidget>
-#include <QDir>
 #include <QLineEdit>
-#include <QVBoxLayout>
 #include <QLabel>
-#include <QPushButton>
 #include <QFileInfo>
-#include <QMenu>
 
 class CaseBrowser : public QWidget
 {

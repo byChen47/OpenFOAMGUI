@@ -3,7 +3,6 @@
 
 #include <QMainWindow>
 #include <QTabWidget>
-#include <QTextEdit>
 #include <QLabel>
 #include <QDockWidget>
 #include <QMenu>
@@ -11,8 +10,6 @@
 #include <QToolBar>
 #include <QStatusBar>
 #include <QSettings>
-#include <QCloseEvent>
-#include <QFileInfo>
 #include <QStackedWidget>
 
 class CaseBrowser;

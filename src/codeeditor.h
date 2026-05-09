@@ -2,8 +2,6 @@
 #define CODEEDITOR_H
 
 #include <QPlainTextEdit>
-#include <QObject>
-
 #include "languagedetector.h"
 
 class LineNumberArea;
