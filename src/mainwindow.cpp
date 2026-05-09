@@ -80,7 +80,7 @@ MainWindow::MainWindow(QWidget *parent)
     welcomeLabel->setText(
         "<h2>Welcome to OpenFOAM GUI</h2>"
         "<p>A CFD case manager for OpenFOAM v2206</p>"
-        "<p>Create by che at 2026.05.09</p>"
+        "<p>Create by chen at 2026.05.09</p>"
         "<br>"
         "<p><b>Case → Open Case</b> to open an OpenFOAM case directory</p>"
         "<p>or drag &amp; drop a case folder onto the browser panel.</p>");
