@@ -2,17 +2,19 @@
 
 A professional CFD case manager and editor for OpenFOAM, built with Qt 6.10.2.
 
+📖 **Online Documentation**: [openfoamgui.readthedocs.io](https://openfoamgui.readthedocs.io/)
+
 ---
 
 ## Features
 
 | Module | Description |
 |--------|-------------|
-| **Case Browser** | Lazy-loading tree view with multi-case, filter, multi-format file support |
-| **Code Editor** | Multi-tab with syntax highlighting, line numbers, 3-way auto-completion, auto-indent |
-| **C++ Auto Completion** | 200+ keywords: STL containers, algorithms, smart pointers, streams, C stdlib |
-| **Python Auto Completion** | Python 3 keywords, builtins, numpy/pandas hints |
-| **OpenFOAM Auto Completion** | 250+ keywords: all BC types, schemes, solvers, snappyHexMesh, turbulence models |
+| **Case Browser** | Lazy-loading tree view, multi-case, filter, multi-format files |
+| **Code Editor** | Multi-tab, syntax highlighting, line numbers, 3-way auto-completion, auto-indent |
+| **C++ Completion** | 200+ STL keywords, containers, algorithms, smart pointers, streams |
+| **Python Completion** | Python 3 builtins, numpy/pandas |
+| **OpenFOAM Completion** | 250+ BC types, schemes, solvers, turbulence models, snappyHexMesh |
 | **#include Headers** | 50+ C/C++/OF header suggestions on `#include <` |
 | **Boundary Conditions** | RTM parameter table, 100+ BC types, patch browser, smart suggestions |
 | **Turbulence Model** | RAS/LES model configuration with model-specific parameters |
@@ -21,11 +23,11 @@ A professional CFD case manager and editor for OpenFOAM, built with Qt 6.10.2.
 | **General Dict** | `blockMeshDict`, `controlDict`, `decomposeParDict`, etc. |
 | **Sync Boundaries** | One-click sync `blockMeshDict` patches → all `0/` field files |
 | **File Viewer** | PNG/JPG/SVG/EPS (zoom, fit); PDF/Office via system default |
-| **Run Python** | Execute `.py` scripts from editor, configurable interpreter path |
-| **Run C++** | Compile with `g++ -std=c++17 -O2` and run, configurable compiler path |
+| **Run Python** | Execute `.py` from editor, configurable interpreter path |
+| **Run C++** | Compile with `g++ -std=c++17 -O2` + run, configurable compiler path |
 | **ParaView** | One-click launch, auto `.foam` file, path config, download guide |
 | **Terminal** | Open system terminal in case directory |
-| **Customizable Toolbar** | Drag-to-reorder, View menu toggles, Reset Default Layout |
+| **Toolbar** | Drag-to-reorder, View menu toggles, Reset Default Layout |
 
 ---
 
@@ -38,26 +40,31 @@ A professional CFD case manager and editor for OpenFOAM, built with Qt 6.10.2.
 | `Ctrl+W` | Close Tab |
 | `Ctrl+F` | Find |
 | `Ctrl+/` | Toggle Comment |
-| `Ctrl+Z/Y` | Undo / Redo |
+| `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
 | `Ctrl+B` | Toggle BC Panel |
 | `Ctrl+Shift+P` | Run Python |
 | `Ctrl+Shift+C` | Run C++ |
+| `Ctrl+N` | New File |
+| `Ctrl+Shift+N`| New Folder |
 
 ---
 
-## Editor
+## Editor Features
 
-**Auto Completion** — Edit menu provides independent toggles for C++, Python, and OpenFOAM. Completion activates after 2+ characters typed.
+### Auto Completion
+Three independent systems, toggleable via **Edit** menu. Activates after 2+ characters.
 
-**Auto Indent** — Enter preserves current indentation. `{` on empty line generates a formatted code block. Cursor inside `{}` + Enter pushes closing brace down.
+### Auto Indent
+Enter preserves indentation. `{` on empty line generates code block. Cursor in `{}` + Enter pushes `}` down.
 
-**#include Headers** — Typing `<` after `#include` triggers 50+ header suggestions. Type to filter.
+### #include Headers
+Typing `<` after `#include` triggers 50+ C/C++/OpenFOAM header suggestions.
 
 ---
 
 ## Sync Boundaries
 
-`View → Sync Boundaries` copies blockMesh boundary names into all field files in `0/` or `0.orig/`. Open editor tabs auto-reload.
+`View → Sync Boundaries` copies blockMesh boundary names into all `0/` or `0.orig/` field files. Open editor tabs auto-reload.
 
 | Patch Type | Field | Default BC |
 |-----------|-------|-------------|
@@ -67,7 +74,7 @@ A professional CFD case manager and editor for OpenFOAM, built with Qt 6.10.2.
 | `wall` | epsilon | `epsilonWallFunction` |
 | `wall` | omega | `omegaWallFunction` |
 | `wall` | nut | `nutkWallFunction` |
-| `empty` / `symmetry` / `wedge` / `cyclic` | any | (same as type) |
+| `empty`/`symmetry`/`wedge`/`cyclic` | any | same as type |
 
 ---
 
@@ -75,18 +82,10 @@ A professional CFD case manager and editor for OpenFOAM, built with Qt 6.10.2.
 
 | Format | Viewer |
 |--------|--------|
-| PNG, JPG, BMP, GIF, WebP, ICO | Native zoomable viewer (− / + / Fit / 1:1) |
+| PNG, JPG, BMP, GIF, WebP, ICO | Native zoom (− / + / Fit / 1:1) |
 | SVG | QSvgWidget |
 | EPS, EPSF, PS | Ghostscript → PNG (auto-detect) |
-| PDF, DOC, DOCX, XLS, XLSX | System default application |
-
----
-
-## ParaView
-
-- **Case → ParaView** launches ParaView with auto-created `.foam` file
-- Configure path: **Case → ParaView Path...**
-- Shows download URL if not installed
+| PDF, DOC, DOCX, XLS, XLSX | System default |
 
 ---
 
@@ -96,44 +95,55 @@ A professional CFD case manager and editor for OpenFOAM, built with Qt 6.10.2.
 - **MinGW-w64** (GCC 15.2+)
 - **OpenFOAM** (v2012–v2512)
 - **ParaView** 5.10+ (optional)
-- **Python** 3.x (optional, for Run Python)
+- **Python 3.x** (optional, for Run Python)
 - **g++** (optional, for Run C++; MinGW includes it)
+- **Ghostscript** (optional, for EPS; TeX Live includes it)
 
 ## Build
 
 ```bash
 qmake OpenFOAMGUI.pro
 mingw32-make -f Makefile.Release
+# Output: release/OpenFOAMGUI.exe
 ```
 
-**Qt modules**: Core, GUI, Widgets, SvgWidgets
-**Standard**: C++17
+**Qt modules**: Core, GUI, Widgets, SvgWidgets · **Standard**: C++17
 
 ---
 
 ## Project Structure
 
 ```
-src/
-├── main.cpp                  Entry point
-├── mainwindow.h/.cpp         Main window, menus, toolbar, docks
-├── casebrowser.h/.cpp        Case directory tree (lazy-loading)
-├── codeeditor.h/.cpp         Editor with auto-completion
-├── fileviewer.h/.cpp         Image/EPS/PDF/Office viewer
-├── ofhighlighter.h/.cpp      OpenFOAM/C++ syntax highlighting
-├── ofparser.h/.cpp           OpenFOAM file parser
-├── ofmeshreader.h/.cpp       OpenFOAM polyMesh reader
-├── languagedetector.h/.cpp   File language detection
-├── linenumberarea.h/.cpp     Line number widget
-├── bcpanel.h/.cpp            Boundary conditions panel
-├── bctypedatabase.h/.cpp     100+ BC type database
-├── turbulencepanel.h/.cpp    Turbulence model panel
-├── turbulencemodeldatabase.h/.cpp
-├── schemespanel.h/.cpp       fvSchemes/fvSolution panel
-├── snappypanel.h/.cpp        snappyHexMeshDict panel
-├── dictpanel.h/.cpp          Generic dictionary panel
-└── bychen.ico                Application icon
+OpenFOAMGUI/
+├── .readthedocs.yaml          # Read the Docs config
+├── mkdocs.yml                 # MkDocs documentation config
+├── docs/                      # Online documentation source
+├── src/                       # Source code (17 source pairs)
+│   ├── main.cpp, mainwindow.* # Entry point + main window
+│   ├── casebrowser.*          # Case directory tree (lazy-loading)
+│   ├── codeeditor.*           # Editor with auto-completion
+│   ├── fileviewer.*           # Image/EPS/PDF/Office viewer
+│   ├── ofhighlighter.*        # OpenFOAM/C++ syntax highlighting
+│   ├── ofparser.*             # OpenFOAM file parser
+│   ├── ofmeshreader.*         # OpenFOAM polyMesh reader
+│   ├── languagedetector.*     # File language detection
+│   ├── linenumberarea.*       # Line number margin widget
+│   ├── bcpanel.* + bctypedatabase.*  # BC panel + 100+ BC types
+│   ├── turbulencepanel.* + turbulencemodeldatabase.*
+│   ├── schemespanel.*         # fvSchemes / fvSolution
+│   ├── snappypanel.*          # snappyHexMeshDict
+│   ├── dictpanel.*            # Generic dictionary
+│   └── bychen.ico             # Application icon
+├── CHANGELOG.md, README.md, README_CN.md
+└── qt.conf, resources.qrc, OpenFOAMGUI.pro
 ```
+
+## Links
+
+- **Online Docs**: [openfoamgui.readthedocs.io](https://openfoamgui.readthedocs.io/)
+- **GitHub**: [github.com/byChen47/OpenFOAMGUI](https://github.com/byChen47/OpenFOAMGUI)
+- **ParaView**: [paraview.org/download](https://www.paraview.org/download/)
+- **Python**: [python.org/downloads](https://www.python.org/downloads/)
 
 ## License
 
