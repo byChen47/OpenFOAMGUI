@@ -19,6 +19,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QPainter>
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QUrl>
 
@@ -1410,6 +1411,81 @@ int MainWindow::syncBoundariesForCase(const QString &casePath, QStringList *upda
     return updatedCount;
 }
 
+// ── Unified terminal-style output dialog ────────────────────────
+static void showTerminalOutput(QWidget *parent, const QString &title,
+    const QString &headerOk, const QString &headerErr,
+    const QString &output, const QString &info, int exitCode)
+{
+    QDialog dlg(parent);
+    dlg.setWindowTitle(title);
+    dlg.resize(750, 550);
+    dlg.setMinimumSize(500, 350);
+
+    auto *root = new QVBoxLayout(&dlg);
+    root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
+
+    // ── Title bar ──
+    auto *titleBar = new QWidget();
+    titleBar->setStyleSheet(exitCode == 0
+        ? "background: #1B5E20;"
+        : "background: #B71C1C;");
+    auto *tb = new QHBoxLayout(titleBar);
+    tb->setContentsMargins(12, 8, 12, 8);
+    auto *statusIcon = new QLabel(exitCode == 0 ? "●" : "●");
+    statusIcon->setStyleSheet("color: white; font-size: 12px;");
+    tb->addWidget(statusIcon);
+    auto *titleLbl = new QLabel(exitCode == 0 ? headerOk : headerErr);
+    titleLbl->setStyleSheet("color: white; font-size: 13px; font-weight: bold;");
+    tb->addWidget(titleLbl, 1);
+    auto *exitLabel = new QLabel(QString("Exit: %1").arg(exitCode));
+    exitLabel->setStyleSheet("color: rgba(255,255,255,0.7); font-size: 11px; font-family: Consolas;");
+    tb->addWidget(exitLabel);
+    root->addWidget(titleBar);
+
+    // ── Terminal output area ──
+    auto *te = new QTextEdit();
+    te->setReadOnly(true);
+    te->setFont(QFont("Consolas", 10));
+    te->setStyleSheet(
+        "QTextEdit { background: #0C0C0C; color: #CCCCCC; border: none; "
+        "padding: 12px; selection-background-color: #264F78; }"
+        "QScrollBar:vertical { background: #1A1A1A; width: 10px; margin: 0; }"
+        "QScrollBar::handle:vertical { background: #444; border-radius: 5px; min-height: 30px; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
+    te->setPlainText(output.isEmpty() ? "(no output)" : output);
+    root->addWidget(te, 1);
+
+    // ── Footer ──
+    auto *footer = new QWidget();
+    footer->setStyleSheet("background: #1A1A1A; border-top: 1px solid #333;");
+    auto *fb = new QHBoxLayout(footer);
+    fb->setContentsMargins(12, 6, 12, 6);
+    auto *infoLbl = new QLabel(info);
+    infoLbl->setStyleSheet("color: #888; font-size: 11px; font-family: Consolas;");
+    fb->addWidget(infoLbl, 1);
+    auto *copyBtn = new QPushButton("Copy");
+    copyBtn->setFixedWidth(60);
+    copyBtn->setStyleSheet(
+        "QPushButton { padding: 4px 12px; background: #333; color: #CCC; border: 1px solid #555; "
+        "border-radius: 3px; font-size: 11px; }"
+        "QPushButton:hover { background: #444; }");
+    QObject::connect(copyBtn, &QPushButton::clicked, [te]() {
+        QApplication::clipboard()->setText(te->toPlainText());
+    });
+    fb->addWidget(copyBtn);
+    auto *closeBtn = new QPushButton("Close");
+    closeBtn->setStyleSheet(
+        "QPushButton { padding: 4px 16px; background: #0078D7; color: white; "
+        "border: none; border-radius: 3px; font-size: 11px; }"
+        "QPushButton:hover { background: #005A9E; }");
+    QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    fb->addWidget(closeBtn);
+    root->addWidget(footer);
+
+    dlg.exec();
+}
+
 // ── Run Python ──────────────────────────────────────────────────
 void MainWindow::onRunPython()
 {
@@ -1495,52 +1571,12 @@ void MainWindow::onRunPython()
     }
     if (result.isEmpty())
         result = "(no output)";
-    result += QString("\n\nExit code: %1").arg(exitCode);
 
-    // Nice resizable output dialog
-    QDialog dlg(this);
-    dlg.setWindowTitle(exitCode == 0 ? "Python Output" : "Python Error");
-    dlg.resize(700, 500);
-    dlg.setMinimumSize(400, 300);
-
-    auto *dl = new QVBoxLayout(&dlg);
-    dl->setContentsMargins(12, 12, 12, 12);
-    dl->setSpacing(8);
-
-    auto *hdr = new QLabel(exitCode == 0 ? "✓  Script completed successfully" : "✗  Script exited with errors");
-    hdr->setStyleSheet(exitCode == 0
-        ? "font-size: 14px; font-weight: bold; color: #388E3C;"
-        : "font-size: 14px; font-weight: bold; color: #D32F2F;");
-    dl->addWidget(hdr);
-
-    auto *te = new QTextEdit();
-    te->setReadOnly(true);
-    te->setFont(QFont("Consolas", 10));
-    te->setStyleSheet(
-        "QTextEdit { background: #1E1E1E; color: #DCDCDC; border: 1px solid #333; "
-        "border-radius: 4px; padding: 8px; }"
-        "QScrollBar:vertical { background: #2D2D2D; width: 10px; }"
-        "QScrollBar::handle:vertical { background: #555; border-radius: 5px; }");
-    te->setPlainText(result.trimmed().isEmpty() ? "(no output)" : result);
-    dl->addWidget(te, 1);
-
-    auto *footer = new QHBoxLayout();
-    auto *infoLbl = new QLabel(QString("Script: %1   |   Exit code: %2")
-        .arg(QFileInfo(scriptPath).fileName()).arg(exitCode));
-    infoLbl->setStyleSheet("color: #888; font-size: 11px;");
-    footer->addWidget(infoLbl);
-    footer->addStretch();
-    auto *closeBtn = new QPushButton("Close");
-    closeBtn->setFixedWidth(80);
-    closeBtn->setStyleSheet(
-        "QPushButton { padding: 6px 16px; background: #0078D7; color: white; "
-        "border: none; border-radius: 3px; }"
-        "QPushButton:hover { background: #005A9E; }");
-    connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
-    footer->addWidget(closeBtn);
-    dl->addLayout(footer);
-
-    dlg.exec();
+    showTerminalOutput(this, "Python Output",
+        "Python Script Completed", "Python Script Error",
+        result,
+        QFileInfo(scriptPath).fileName() + "   |   " + pythonPath,
+        exitCode);
 
     statusBar()->showMessage(
         QString("Python exit code: %1").arg(exitCode), 5000);
@@ -1665,46 +1701,16 @@ void MainWindow::onRunCpp()
     QString errors = QString::fromUtf8(run.readAllStandardError());
     int exitCode = run.exitCode();
 
-    // Show output dialog
-    QDialog dlg(this);
-    dlg.setWindowTitle("C++ Output");
-    dlg.resize(700, 500);
-    dlg.setMinimumSize(400, 300);
-
-    auto *dl = new QVBoxLayout(&dlg);
-    dl->setContentsMargins(12, 12, 12, 12);
-    dl->setSpacing(8);
-
-    auto *hdr = new QLabel(exitCode == 0 ? "Program completed" : "Program exited with errors");
-    hdr->setStyleSheet(exitCode == 0
-        ? "font-size: 14px; font-weight: bold; color: #388E3C;"
-        : "font-size: 14px; font-weight: bold; color: #D32F2F;");
-    dl->addWidget(hdr);
-
     QString result;
     if (!output.isEmpty()) result += output;
     if (!errors.isEmpty()) { if (!result.isEmpty()) result += "\n\n"; result += "--- STDERR ---\n" + errors; }
     if (result.isEmpty()) result = "(no output)";
 
-    auto *te = new QTextEdit();
-    te->setReadOnly(true);
-    te->setFont(QFont("Consolas", 10));
-    te->setStyleSheet("QTextEdit{background:#1E1E1E;color:#DCDCDC;border:1px solid #333;border-radius:4px;padding:8px;}");
-    te->setPlainText(result.trimmed().isEmpty() ? "(no output)" : result);
-    dl->addWidget(te, 1);
-
-    auto *footer = new QHBoxLayout();
-    auto *inf = new QLabel(QString("Source: %1   |   Exit: %2").arg(srcInfo.fileName()).arg(exitCode));
-    inf->setStyleSheet("color:#888;font-size:11px;");
-    footer->addWidget(inf);
-    footer->addStretch();
-    auto *closeBtn = new QPushButton("Close");
-    closeBtn->setFixedWidth(80);
-    closeBtn->setStyleSheet("QPushButton{padding:6px 16px;background:#0078D7;color:white;border:none;border-radius:3px;}");
-    connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
-    footer->addWidget(closeBtn);
-    dl->addLayout(footer);
-    dlg.exec();
+    showTerminalOutput(this, "C++ Output",
+        "C++ Program Completed", "C++ Program Error",
+        result,
+        srcInfo.fileName() + "   |   " + compilerPath,
+        exitCode);
 
     statusBar()->showMessage(QString("C++ exit code: %1").arg(exitCode), 5000);
 }
