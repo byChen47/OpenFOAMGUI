@@ -80,6 +80,7 @@ MainWindow::MainWindow(QWidget *parent)
     welcomeLabel->setText(
         "<h2>Welcome to OpenFOAM GUI</h2>"
         "<p>A CFD case manager for OpenFOAM v2206</p>"
+        "<p>Create by che at 2026.05.09</p>"
         "<br>"
         "<p><b>Case → Open Case</b> to open an OpenFOAM case directory</p>"
         "<p>or drag &amp; drop a case folder onto the browser panel.</p>");
@@ -1861,7 +1862,7 @@ void MainWindow::onRefreshCase()
 void MainWindow::onAbout()
 {
     QMessageBox::about(this, "About OpenFOAM GUI",
-                       "<h3>OpenFOAM GUI v2.0.0  byCHen</h3>"
+                       "<h3>OpenFOAM GUI v2.0.2  byCHen</h3>"
                        "<p>A CFD case manager for OpenFOAM v2012 to v2512 </p>"
                        "<p>Open, browse, edit, and save OpenFOAM case files "
                        "with syntax highlighting and case structure awareness.</p>"
