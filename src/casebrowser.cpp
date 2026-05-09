@@ -304,11 +304,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
             createFileItem(sf, si);
     }
 
-    // Other files at top level
-    for (const auto &of : otherFiles)
-        createFileItem(QFileInfo(caseDir.filePath(of)), caseRoot);
-
-    // Sub-directories — lazy
+    // Sub-directories — lazy (before loose files)
     for (const auto &sd : subDirs) {
         QDir sdDir(caseDir.filePath(sd));
         auto sdE = sdDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
@@ -339,6 +335,10 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
             addPlaceholder(odi);
         }
     }
+
+    // Files at top level (Allrun, Allclean, etc.) — after all directories
+    for (const auto &of : otherFiles)
+        createFileItem(QFileInfo(caseDir.filePath(of)), caseRoot);
 
     m_tree->setUpdatesEnabled(true);
 }
