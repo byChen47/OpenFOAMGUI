@@ -429,24 +429,13 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
         switch (e->key()) {
         case Qt::Key_Enter:
         case Qt::Key_Return:
-        case Qt::Key_Tab:
-            // Accept the current completion
-            {
-                QString prefix = m_completer->completionPrefix();
-                QStringListModel *model = qobject_cast<QStringListModel*>(m_completer->completionModel());
-                if (model && model->rowCount() > 0) {
-                    // Find the first matching item
-                    for (int i = 0; i < model->rowCount(); ++i) {
-                        QString item = model->data(model->index(i, 0)).toString();
-                        if (item.startsWith(prefix, Qt::CaseInsensitive)) {
-                            insertCompletion(item);
-                            break;
-                        }
-                    }
-                }
-            }
+        case Qt::Key_Tab: {
+            QString sel = m_completer->currentCompletion();
+            if (!sel.isEmpty())
+                insertCompletion(sel);
             m_completer->popup()->hide();
             return;
+        }
         case Qt::Key_Escape:
             m_completer->popup()->hide();
             return;
