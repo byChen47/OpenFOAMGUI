@@ -1411,7 +1411,7 @@ int MainWindow::syncBoundariesForCase(const QString &casePath, QStringList *upda
     return updatedCount;
 }
 
-// ── Unified terminal-style output dialog ────────────────────────
+// ── Unified terminal-style output dialog (VSCode light by default) ──
 static void showTerminalOutput(QWidget *parent, const QString &title,
     const QString &headerOk, const QString &headerErr,
     const QString &output, const QString &info, int exitCode)
@@ -1425,60 +1425,96 @@ static void showTerminalOutput(QWidget *parent, const QString &title,
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
-    // ── Title bar ──
+    // ── Title bar (VSCode-style) ──
     auto *titleBar = new QWidget();
     titleBar->setStyleSheet(exitCode == 0
-        ? "background: #1B5E20;"
-        : "background: #B71C1C;");
+        ? "background: #16825D;"
+        : "background: #C72E2E;");
     auto *tb = new QHBoxLayout(titleBar);
-    tb->setContentsMargins(12, 8, 12, 8);
-    auto *statusIcon = new QLabel(exitCode == 0 ? "●" : "●");
-    statusIcon->setStyleSheet("color: white; font-size: 12px;");
+    tb->setContentsMargins(14, 9, 14, 9);
+    auto *statusIcon = new QLabel("●");
+    statusIcon->setStyleSheet("color: white; font-size: 11px;");
     tb->addWidget(statusIcon);
     auto *titleLbl = new QLabel(exitCode == 0 ? headerOk : headerErr);
-    titleLbl->setStyleSheet("color: white; font-size: 13px; font-weight: bold;");
+    titleLbl->setStyleSheet("color: white; font-size: 13px; font-weight: 600; font-family: 'Segoe UI';");
     tb->addWidget(titleLbl, 1);
     auto *exitLabel = new QLabel(QString("Exit: %1").arg(exitCode));
-    exitLabel->setStyleSheet("color: rgba(255,255,255,0.7); font-size: 11px; font-family: Consolas;");
+    exitLabel->setStyleSheet("color: rgba(255,255,255,0.75); font-size: 11px; "
+        "font-family: 'Cascadia Code', 'Consolas', monospace;");
     tb->addWidget(exitLabel);
     root->addWidget(titleBar);
 
-    // ── Terminal output area ──
+    // ── Output area (VSCode light theme by default) ──
     auto *te = new QTextEdit();
     te->setReadOnly(true);
-    te->setFont(QFont("Consolas", 10));
-    te->setStyleSheet(
-        "QTextEdit { background: #0C0C0C; color: #CCCCCC; border: none; "
-        "padding: 12px; selection-background-color: #264F78; }"
-        "QScrollBar:vertical { background: #1A1A1A; width: 10px; margin: 0; }"
-        "QScrollBar::handle:vertical { background: #444; border-radius: 5px; min-height: 30px; }"
-        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
+    QFont monoFont("Cascadia Code", 10);
+    monoFont.setStyleHint(QFont::Monospace);
+    if (!QFontInfo(monoFont).exactMatch()) {
+        monoFont = QFont("Consolas", 10);
+        monoFont.setStyleHint(QFont::Monospace);
+    }
+    te->setFont(monoFont);
+
+    bool darkMode = false;
+    auto applyTheme = [te](bool dark) {
+        if (dark) {
+            te->setStyleSheet(
+                "QTextEdit { background: #0D0D0D; color: #D4D4D4; border: none; "
+                "padding: 14px; selection-background-color: #264F78; }"
+                "QScrollBar:vertical { background: #1E1E1E; width: 10px; margin: 0; }"
+                "QScrollBar::handle:vertical { background: #555; border-radius: 5px; min-height: 30px; }"
+                "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
+        } else {
+            te->setStyleSheet(
+                "QTextEdit { background: #FFFFFF; color: #1E1E1E; border: none; "
+                "padding: 14px; selection-background-color: #ADD6FF; }"
+                "QScrollBar:vertical { background: #F5F5F5; width: 10px; margin: 0; }"
+                "QScrollBar::handle:vertical { background: #C1C1C1; border-radius: 5px; min-height: 30px; }"
+                "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
+        }
+    };
+    applyTheme(false); // default: VSCode light
     te->setPlainText(output.isEmpty() ? "(no output)" : output);
     root->addWidget(te, 1);
 
-    // ── Footer ──
+    // ── Footer (VSCode status bar style) ──
     auto *footer = new QWidget();
-    footer->setStyleSheet("background: #1A1A1A; border-top: 1px solid #333;");
+    footer->setStyleSheet("background: #007ACC; border-top: none;");
     auto *fb = new QHBoxLayout(footer);
-    fb->setContentsMargins(12, 6, 12, 6);
+    fb->setContentsMargins(14, 5, 14, 5);
     auto *infoLbl = new QLabel(info);
-    infoLbl->setStyleSheet("color: #888; font-size: 11px; font-family: Consolas;");
+    infoLbl->setStyleSheet("color: rgba(255,255,255,0.85); font-size: 11px; "
+        "font-family: 'Cascadia Code', 'Consolas', monospace;");
     fb->addWidget(infoLbl, 1);
+
+    // ── Theme toggle button ──
+    auto *themeBtn = new QPushButton("☽ Dark");
+    themeBtn->setStyleSheet(
+        "QPushButton { padding: 3px 10px; background: rgba(255,255,255,0.15); color: white; "
+        "border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; font-size: 11px; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.25); }");
+    QObject::connect(themeBtn, &QPushButton::clicked, [te, themeBtn, applyTheme, &darkMode]() {
+        darkMode = !darkMode;
+        applyTheme(darkMode);
+        themeBtn->setText(darkMode ? "☀ Light" : "☽ Dark");
+    });
+    fb->addWidget(themeBtn);
+
     auto *copyBtn = new QPushButton("Copy");
-    copyBtn->setFixedWidth(60);
     copyBtn->setStyleSheet(
-        "QPushButton { padding: 4px 12px; background: #333; color: #CCC; border: 1px solid #555; "
-        "border-radius: 3px; font-size: 11px; }"
-        "QPushButton:hover { background: #444; }");
+        "QPushButton { padding: 3px 12px; background: rgba(255,255,255,0.15); color: white; "
+        "border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; font-size: 11px; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.25); }");
     QObject::connect(copyBtn, &QPushButton::clicked, [te]() {
         QApplication::clipboard()->setText(te->toPlainText());
     });
     fb->addWidget(copyBtn);
+
     auto *closeBtn = new QPushButton("Close");
     closeBtn->setStyleSheet(
-        "QPushButton { padding: 4px 16px; background: #0078D7; color: white; "
-        "border: none; border-radius: 3px; font-size: 11px; }"
-        "QPushButton:hover { background: #005A9E; }");
+        "QPushButton { padding: 3px 14px; background: rgba(255,255,255,0.2); color: white; "
+        "border: none; border-radius: 3px; font-size: 11px; font-weight: 600; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.35); }");
     QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     fb->addWidget(closeBtn);
     root->addWidget(footer);
