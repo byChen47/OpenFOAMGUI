@@ -1428,7 +1428,7 @@ static void showTerminalOutput(QWidget *parent, const QString &title,
     // ── Title bar (VSCode-style) ──
     auto *titleBar = new QWidget();
     titleBar->setStyleSheet(exitCode == 0
-        ? "background: #16825D;"
+        ? "background: #0077B6;"
         : "background: #C72E2E;");
     auto *tb = new QHBoxLayout(titleBar);
     tb->setContentsMargins(14, 9, 14, 9);
