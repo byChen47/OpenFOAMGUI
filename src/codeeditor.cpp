@@ -251,6 +251,94 @@ static QStringList ofKeywords() { return {
     "kOmegaSSTDensityDES","kOmegaSSTDensityDDES",
     // Transition models
     "gammaReTheta","kOmegaSSTLM","kOmegaSSTSAS",
+    // ── 0/ directory files & setFieldsDict ──
+    "setFieldsDict","defaultFieldValues","regions","fieldValues",
+    "volScalarFieldValue","volVectorFieldValue","boxToCell","sphereToCell",
+    "surfaceToCell","cellToCell","setField","fieldCoeffs",
+    // ── constant/ directory files ──
+    // transportProperties
+    "transportProperties","transportModel","nu","nuInf","kappa",
+    "CrossPowerLaw","BirdCarreau","HerschelBulkley","powerLaw",
+    // thermophysicalProperties
+    "thermophysicalProperties","thermoType","heRhoThermo","hePsiThermo",
+    "mixture","specie","equationOfState","thermodynamics","transport",
+    "energySensible","energyAbsolute","sensibleEnthalpy","sensibleInternalEnergy",
+    "perfectGas","PengRobinsonGas","icoPolynomial","hPolynomial",
+    "janafThermo","hTabular","constantTransport","sutherlandTransport",
+    "polynomialTransport","tabulatedTransport","unityLewisTransport",
+    "As","Ts","Pr","Prt","Cp","Cv","mu","muf","alphat",
+    // g (gravitational acceleration)
+    "g","dimensions","gravitationalAcceleration",
+    // momentumTransport (v2112+)
+    "momentumTransport","laminar","RAS","LES","turbulence",
+    "simulationType","printCoeffs","relaxation",
+    // physicalProperties (v2112+)
+    "physicalProperties","phaseChange","interface",
+    // radiationProperties
+    "radiationProperties","radiationModel","solarLoad","absorptionEmissionModel",
+    "scatterModel","sootModel","transmissivityModel","viewFactorModel",
+    "opaqueSolid","greyMean","greyGrey","fvDOM","P1","P1Iso",
+    "absorptionCoefficient","emissivity","emissivityCoeffs",
+    // combustionProperties
+    "combustionProperties","combustionModel","ignition","flameletModel",
+    "PaSR","EDC","eddyDissipation","infinitelyFastChemistry",
+    // phaseProperties
+    "phaseProperties","phases","sigma","surfaceTension","phasePair",
+    // chemistryProperties
+    "chemistryProperties","chemistrySolver","chemistryReader",
+    "ODE","EulerImplicit","standardChemistryModel","TDACChemistryModel",
+    "reactions","species","thermoPhysics",
+    // ── system/ directory files ──
+    // sampleDict / function objects
+    "sampleDict","sets","surfaces","sampleScheme","sampleFormat",
+    "setFormat","surfaceFormat","interpolationScheme","fields",
+    "cloud","line","face","midPoint","midPointAndFace","uniform",
+    "vtk","raw","ensight","csv","json","gnuplot",
+    // surfaceFeatureExtract
+    "surfaceFeatureExtractDict","extractionMethod","extractFromSurface",
+    "extractFromFile","includedAngle","writeFeatureMesh",
+    // mapFields
+    "mapFieldsDict","mapMethod","consistent","patchMap","cuttingPatches",
+    // setFields / topoSet
+    "topoSetDict","actions","source","name","type","action",
+    "cellSet","faceSet","pointSet","faceZoneSet","cellZoneSet",
+    "clear","new","add","delete","subset","invert",
+    // forces function object
+    "forceCoeffs","forceCoeff","coefficient","drag","lift","sideForce",
+    "momentCoeff","liftDir","dragDir","pitchAxis","magUInf","lRef","Aref",
+    "force","moment","pressureForce","viscousForce","porousForce",
+    // probes
+    "probes","probeLocations","fieldsToSample",
+    // residuals
+    "residuals","fieldsToPlot","residual",
+    // fieldAverage
+    "fieldAverage","periodic","restartPeriodic","mean","prime2Mean",
+    // streamline
+    "streamline","seedSet","U","trackForward","lifeTime","nSubCycles",
+    // cutting plane / iso surface
+    "cuttingPlane","plane","isoSurface","isoValue","interpolate",
+    // vorticity / Q / Lambda2
+    "vorticity","Q","Lambda2","enstrophy","helicity",
+    // wall functions
+    "wallFunction","Cmu","kappa","E","yPlusLam",
+    // postProcessing dicts
+    "postProcessing","graphs","graphFormat","plot",
+    // solver controls
+    "cache","agglomeration","mergeLevels","nPreSweeps","nPostSweeps",
+    "nFinestSweeps","scale","minIter","maxIter","direct","interface",
+    "faster","smoother","nSweeps","interpolateCorrection",
+    "GaussSeidel","symGaussSeidel","FDICSmoother","nonBlockingGaussSeidel",
+    // fvConstraints (v2112+)
+    "fvConstraints","limitPressure","limitTemperature","limitVelocity",
+    "fixedTemperatureConstraint","fixedValueConstraint",
+    "meanVelocityForce","meanVelocityForceCoeffs",
+    // common dict entries
+    "debug","debugSwitches","infoSwitches","optimisationSwitches",
+    "dimensionsSet","globalIndex","processorCase","distributed",
+    "roots","case","system","constant","time","region",
+    "controlDict","fvSchemes","fvSolution","createPatchDict",
+    "renumberMeshDict","refineMeshDict","extrudeMeshDict",
+    "mirrorMeshDict","transformPointsDict","surfaceTransformPointsDict",
 };}
 
 // ── Constructor ─────────────────────────────────────────────────
