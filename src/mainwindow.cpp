@@ -845,7 +845,8 @@ bool MainWindow::openFileInTab(const QString &filePath)
                 || fi2.fileName() == "extrudeMeshDict" || fi2.fileName() == "forces"
                 || fi2.fileName() == "forceCoeffs" || fi2.fileName() == "fvConstraints"
                 || fi2.fileName() == "mirrorMeshDict" || fi2.fileName() == "renumberMeshDict"
-                || fi2.fileName() == "transformPointsDict")
+                || fi2.fileName() == "transformPointsDict"
+                || fi2.fileName() == "waveProperties")
                && lang == FileLanguage::OpenFOAM) {
         m_dictPanel->loadFile(filePath, content);
         m_rightPanelStack->setCurrentIndex(4);

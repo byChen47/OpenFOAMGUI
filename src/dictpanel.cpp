@@ -381,6 +381,10 @@ void DictPanel::loadFile(const QString &filePath, const QString &)
         if (m_extrudeMeshSections.isEmpty()) initExtrudeMeshData();
         m_currentSections = &m_extrudeMeshSections;
         title = "extrudeMeshDict — 2D to 3D Extrusion";
+    } else if (m_fileType == "waveProperties") {
+        if (m_wavePropertiesSections.isEmpty()) initWavePropertiesData();
+        m_currentSections = &m_wavePropertiesSections;
+        title = "waveProperties — Wave Modelling";
     } else if (m_fileType == "mirrorMeshDict" || m_fileType == "renumberMeshDict"
                || m_fileType == "transformPointsDict") {
         if (m_postProcessSections.isEmpty()) initPostProcessData();
@@ -1066,5 +1070,77 @@ void DictPanel::initPostProcessData() {
         {"rotationCentre", "vector", "(0 0 0)", "Rotation centre"},
         {"rotationAxis", "vector", "(0 0 1)", "Rotation axis"},
         {"rotationAngle", "scalar", "0", "Rotation angle [degrees]"},
+    };
+}
+
+// ── waveProperties ───────────────────────────────────────────
+void DictPanel::initWavePropertiesData() {
+    m_wavePropertiesSections.clear();
+    m_wavePropertiesSections.append({"Airy (StokesI)", "Linear wave theory. Small amplitude, deep/shallow water.", {},
+        "waveProperties\n{\n    seaLevel    0;\n\n"
+        "    StokesI\n    {\n        depth       10;\n"
+        "        waveLength  50;\n        waveHeight  2;\n"
+        "        wavePhase   0;\n    }\n}\n"});
+    m_wavePropertiesSections.last().params = {
+        {"seaLevel", "scalar", "0", "Still water level [m]"},
+        {"waveModel", "word", "StokesI", "Wave model: StokesI / StokesII / StokesV / cnoidal / streamFunction / irregular"},
+        {"depth", "scalar", "10", "Water depth [m]"},
+        {"waveLength", "scalar", "50", "Wave length [m]"},
+        {"waveHeight", "scalar", "2", "Wave height (2×amplitude) [m]"},
+        {"wavePhase", "scalar", "0", "Wave phase offset [rad]"},
+        {"direction", "vector", "(1 0 0)", "Wave propagation direction"},
+    };
+    m_wavePropertiesSections.append({"StokesII", "Second-order Stokes wave. Moderate wave steepness.", {},
+        "StokesII\n{\n    depth       10;\n    waveLength  50;\n"
+        "    waveHeight  2;\n    wavePhase   0;\n}\n"});
+    m_wavePropertiesSections.last().params = {
+        {"depth", "scalar", "10", "Water depth [m]"},
+        {"waveLength", "scalar", "50", "Wave length [m]"},
+        {"waveHeight", "scalar", "2", "Wave height [m]"},
+        {"wavePhase", "scalar", "0", "Wave phase [rad]"},
+    };
+    m_wavePropertiesSections.append({"StokesV", "Fifth-order Stokes wave. High wave steepness.", {},
+        "StokesV\n{\n    depth       10;\n    waveLength  50;\n"
+        "    waveHeight  2;\n    wavePhase   0;\n}\n"});
+    m_wavePropertiesSections.last().params = {
+        {"depth", "scalar", "10", "Water depth [m]"},
+        {"waveLength", "scalar", "50", "Wave length [m]"},
+        {"waveHeight", "scalar", "2", "Wave height [m]"},
+        {"wavePhase", "scalar", "0", "Wave phase [rad]"},
+    };
+    m_wavePropertiesSections.append({"Cnoidal", "Cnoidal wave theory. Shallow water, finite amplitude.", {},
+        "cnoidal\n{\n    depth       5;\n    waveLength  30;\n"
+        "    waveHeight  1.5;\n    wavePhase   0;\n    m           0.9;\n}\n"});
+    m_wavePropertiesSections.last().params = {
+        {"depth", "scalar", "5", "Water depth [m]"},
+        {"waveLength", "scalar", "30", "Wave length [m]"},
+        {"waveHeight", "scalar", "1.5", "Wave height [m]"},
+        {"wavePhase", "scalar", "0", "Wave phase [rad]"},
+        {"m", "scalar", "0.9", "Elliptic parameter (0–1). 0=sinusoidal, 1=solitary"},
+    };
+    m_wavePropertiesSections.append({"Stream Function", "Stream function wave. Highly accurate, finite amplitude.", {},
+        "streamFunction\n{\n    depth       10;\n    waveLength  50;\n"
+        "    waveHeight  2;\n    wavePhase   0;\n    uMean       0;\n    nTerms      5;\n}\n"});
+    m_wavePropertiesSections.last().params = {
+        {"depth", "scalar", "10", "Water depth [m]"},
+        {"waveLength", "scalar", "50", "Wave length [m]"},
+        {"waveHeight", "scalar", "2", "Wave height [m]"},
+        {"wavePhase", "scalar", "0", "Wave phase [rad]"},
+        {"uMean", "scalar", "0", "Mean streaming velocity [m/s]"},
+        {"nTerms", "label", "5", "Number of Fourier terms"},
+    };
+    m_wavePropertiesSections.append({"Irregular (JONSWAP)", "Irregular wave spectrum. JONSWAP (North Sea).", {},
+        "irregular\n{\n    spectrum    JONSWAP;\n    N           100;\n"
+        "    waveHeight  2;\n    wavePeriod  8;\n    depth       10;\n"
+        "    gamma       3.3;\n}\n"});
+    m_wavePropertiesSections.last().params = {
+        {"spectrum", "word", "JONSWAP", "JONSWAP / PiersonMoskowitz"},
+        {"N", "label", "100", "Number of wave components"},
+        {"waveHeight", "scalar", "2", "Significant wave height (Hs) [m]"},
+        {"wavePeriod", "scalar", "8", "Peak spectral period (Tp) [s]"},
+        {"depth", "scalar", "10", "Water depth [m]"},
+        {"gamma", "scalar", "3.3", "Peak enhancement factor (1=PM, 3.3=JONSWAP)"},
+        {"direction", "vector", "(1 0 0)", "Mean wave direction"},
+        {"spreadingCoefficient", "scalar", "2", "Directional spreading coefficient"},
     };
 }
