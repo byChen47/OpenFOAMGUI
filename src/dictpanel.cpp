@@ -33,6 +33,34 @@ void DictPanel::setupUI()
     m_pathLabel->setStyleSheet("color: #888; font-size: 10px; padding: 2px 10px; background: #FAFAFA;");
     root->addWidget(m_pathLabel);
 
+    // Full template insert button
+    auto *btnBar = new QWidget();
+    auto *bbl = new QHBoxLayout(btnBar);
+    bbl->setContentsMargins(4, 3, 4, 3);
+    bbl->setSpacing(6);
+    auto *fullBtn = new QPushButton("Insert Full Template");
+    fullBtn->setStyleSheet(
+        "QPushButton { padding: 4px 14px; background: #E67E22; color: white; "
+        "border: none; border-radius: 3px; font-weight: bold; font-size: 11px; }"
+        "QPushButton:hover { background: #D35400; }");
+    connect(fullBtn, &QPushButton::clicked, [this]() {
+        if (!m_editor || !m_currentSections) return;
+        QString full;
+        for (const auto &s : *m_currentSections)
+            if (!s.sampleBlock.isEmpty()) full += s.sampleBlock;
+        if (full.isEmpty()) return;
+        QTextCursor c = m_editor->textCursor();
+        c.insertText(full);
+        m_editor->setTextCursor(c);
+        QApplication::clipboard()->setText(full);
+    });
+    bbl->addWidget(fullBtn);
+    auto *hintLbl = new QLabel("Right-click section list for single or full insert");
+    hintLbl->setStyleSheet("color: #999; font-size: 10px;");
+    bbl->addWidget(hintLbl);
+    bbl->addStretch();
+    root->addWidget(btnBar);
+
     auto *ms = new QSplitter(Qt::Horizontal); ms->setChildrenCollapsible(false);
     auto *lp = new QWidget(); auto *ll = new QVBoxLayout(lp); ll->setContentsMargins(4,2,2,2);
     m_sectionList = new QListWidget();
@@ -505,15 +533,35 @@ void DictPanel::onSectionContextMenu(const QPoint &pos)
     int idx = m_sectionList->row(item);
     if (idx < 0 || idx >= m_currentSections->size()) return;
     QString block = (*m_currentSections)[idx].sampleBlock;
-    if (block.isEmpty()) return;
+
+    // Build full template from ALL sections
+    QString fullTemplate;
+    for (const auto &s : *m_currentSections) {
+        if (!s.sampleBlock.isEmpty())
+            fullTemplate += s.sampleBlock;
+    }
 
     QMenu menu;
-    QAction *act = menu.addAction(QString("Insert \"%1\" block").arg((*m_currentSections)[idx].name));
-    connect(act, &QAction::triggered, [this, block]() {
-        if (!m_editor) return;
-        QTextCursor c = m_editor->textCursor(); c.insertText(block); m_editor->setTextCursor(c);
-        QApplication::clipboard()->setText(block);
-    });
+    // ── Single section insert ──
+    if (!block.isEmpty()) {
+        QAction *act = menu.addAction(QString("Insert \"%1\" section").arg((*m_currentSections)[idx].name));
+        connect(act, &QAction::triggered, [this, block]() {
+            if (!m_editor) return;
+            QTextCursor c = m_editor->textCursor(); c.insertText(block); m_editor->setTextCursor(c);
+            QApplication::clipboard()->setText(block);
+        });
+    }
+    menu.addSeparator();
+    // ── Full template insert ──
+    if (!fullTemplate.isEmpty()) {
+        QAction *fullAct = menu.addAction("Insert Full Template");
+        fullAct->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+        connect(fullAct, &QAction::triggered, [this, fullTemplate]() {
+            if (!m_editor) return;
+            QTextCursor c = m_editor->textCursor(); c.insertText(fullTemplate); m_editor->setTextCursor(c);
+            QApplication::clipboard()->setText(fullTemplate);
+        });
+    }
     menu.exec(m_sectionList->mapToGlobal(pos));
 }
 
