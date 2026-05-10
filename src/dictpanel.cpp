@@ -385,6 +385,10 @@ void DictPanel::loadFile(const QString &filePath, const QString &)
         if (m_wavePropertiesSections.isEmpty()) initWavePropertiesData();
         m_currentSections = &m_wavePropertiesSections;
         title = "waveProperties — Wave Modelling";
+    } else if (m_fileType == "waveProperties.input") {
+        if (m_waves2FoamSections.isEmpty()) initWaves2FoamData();
+        m_currentSections = &m_waves2FoamSections;
+        title = "waveProperties.input — waves2Foam Wave Generation";
     } else if (m_fileType == "mirrorMeshDict" || m_fileType == "renumberMeshDict"
                || m_fileType == "transformPointsDict") {
         if (m_postProcessSections.isEmpty()) initPostProcessData();
@@ -1142,5 +1146,135 @@ void DictPanel::initWavePropertiesData() {
         {"gamma", "scalar", "3.3", "Peak enhancement factor (1=PM, 3.3=JONSWAP)"},
         {"direction", "vector", "(1 0 0)", "Mean wave direction"},
         {"spreadingCoefficient", "scalar", "2", "Directional spreading coefficient"},
+    };
+}
+
+// ── waves2Foam waveProperties.input ──────────────────────────
+void DictPanel::initWaves2FoamData() {
+    m_waves2FoamSections.clear();
+    m_waves2FoamSections.append({"Wave Type", "Select wave theory and global settings.", {},
+        "waveType        stokesFirst;\n\n"
+        "genAbs          1;\n"
+        "absDir          0.0;\n"
+        "nPaddle         1;\n\n"
+        "depth           10.0;\n\n"
+        "Tsoft           2.0;\n\n"
+        "relaxationZone\n"
+        "{\n"
+        "    relaxationScheme Spatial;\n"
+        "    beachLength      5.0;\n"
+        "    relaxationShape  Rectangular;\n"
+        "    relaxType        INLET;\n"
+        "    startX           20.0;\n"
+        "    endX             25.0;\n"
+        "    orientationX     1.0;\n"
+        "    orientationY     0.0;\n"
+        "}\n"});
+    m_waves2FoamSections.last().params = {
+        {"waveType", "word", "stokesFirst", "stokesFirst / stokesSecond / stokesFifth / cnoidal / streamFunction / irregular / empty"},
+        {"genAbs", "label", "1", "Number of wave generation/absorption boundaries"},
+        {"absDir", "scalar", "0", "Absorption direction [degrees]"},
+        {"nPaddle", "label", "1", "Number of paddles"},
+        {"depth", "scalar", "10", "Still water depth [m]"},
+        {"Tsoft", "scalar", "2", "Ramp-up time for wave generation [s]"},
+        {"relaxationScheme", "word", "Spatial", "Relaxation: Spatial / Temporal"},
+        {"beachLength", "scalar", "5", "Relaxation beach length [m]"},
+        {"relaxationShape", "word", "Rectangular", "Rectangular / Elliptical / Exponential"},
+        {"relaxType", "word", "INLET", "INLET / OUTLET / BOTH"},
+        {"startX", "scalar", "20", "Beach start x-coordinate [m]"},
+        {"endX", "scalar", "25", "Beach end x-coordinate [m]"},
+        {"orientationX", "scalar", "1", "X component of beach orientation"},
+        {"orientationY", "scalar", "0", "Y component of beach orientation"},
+    };
+    m_waves2FoamSections.append({"Stokes First", "First-order Stokes (linear) wave.", {},
+        "waveType        stokesFirst;\n"
+        "height          2.0;\n"
+        "period          8.0;\n"
+        "direction       (1 0 0);\n"
+        "phi             0.0;\n"});
+    m_waves2FoamSections.last().params = {
+        {"height", "scalar", "2.0", "Wave height [m]"},
+        {"period", "scalar", "8.0", "Wave period [s]"},
+        {"direction", "vector", "(1 0 0)", "Wave direction vector"},
+        {"phi", "scalar", "0", "Phase lag [rad]"},
+        {"Tsoft", "scalar", "2", "Ramp time (overrides global) [s]"},
+    };
+    m_waves2FoamSections.append({"Stokes Second", "Second-order Stokes wave.", {},
+        "waveType        stokesSecond;\n"
+        "height          2.0;\n"
+        "period          8.0;\n"
+        "direction       (1 0 0);\n"
+        "phi             0.0;\n"});
+    m_waves2FoamSections.last().params = {
+        {"height", "scalar", "2.0", "Wave height [m]"},
+        {"period", "scalar", "8.0", "Wave period [s]"},
+        {"direction", "vector", "(1 0 0)", "Wave direction vector"},
+        {"phi", "scalar", "0", "Phase lag [rad]"},
+    };
+    m_waves2FoamSections.append({"Stokes Fifth", "Fifth-order Stokes wave. High steepness.", {},
+        "waveType        stokesFifth;\n"
+        "height          3.0;\n"
+        "period          10.0;\n"
+        "direction       (1 0 0);\n"
+        "phi             0.0;\n"});
+    m_waves2FoamSections.last().params = {
+        {"height", "scalar", "3.0", "Wave height [m]"},
+        {"period", "scalar", "10.0", "Wave period [s]"},
+        {"direction", "vector", "(1 0 0)", "Wave direction vector"},
+        {"phi", "scalar", "0", "Phase lag [rad]"},
+    };
+    m_waves2FoamSections.append({"Cnoidal", "Cnoidal wave. Shallow water.", {},
+        "waveType        cnoidal;\n"
+        "height          1.5;\n"
+        "period          12.0;\n"
+        "direction       (1 0 0);\n"
+        "m               0.9;\n"
+        "phi             0.0;\n"});
+    m_waves2FoamSections.last().params = {
+        {"height", "scalar", "1.5", "Wave height [m]"},
+        {"period", "scalar", "12.0", "Wave period [s]"},
+        {"direction", "vector", "(1 0 0)", "Wave direction vector"},
+        {"m", "scalar", "0.9", "Elliptic parameter (0–1)"},
+        {"phi", "scalar", "0", "Phase lag [rad]"},
+    };
+    m_waves2FoamSections.append({"Stream Function", "Stream function wave theory.", {},
+        "waveType        streamFunction;\n"
+        "height          2.0;\n"
+        "period          8.0;\n"
+        "direction       (1 0 0);\n"
+        "uMean           0.0;\n"
+        "nTerms          5;\n"
+        "phi             0.0;\n"});
+    m_waves2FoamSections.last().params = {
+        {"height", "scalar", "2.0", "Wave height [m]"},
+        {"period", "scalar", "8.0", "Wave period [s]"},
+        {"direction", "vector", "(1 0 0)", "Wave direction vector"},
+        {"uMean", "scalar", "0", "Mean Eulerian velocity [m/s]"},
+        {"nTerms", "label", "5", "Number of Fourier components"},
+        {"phi", "scalar", "0", "Phase lag [rad]"},
+    };
+    m_waves2FoamSections.append({"Irregular JONSWAP", "Irregular waves with JONSWAP spectrum.", {},
+        "waveType        irregular;\n\n"
+        "N               100;\n"
+        "Hs              2.0;\n"
+        "Tp              8.0;\n"
+        "gamma           3.3;\n"
+        "direction       (1 0 0);\n"
+        "spreadingCoeff  2.0;\n"
+        "writeSpectrum   true;\n"});
+    m_waves2FoamSections.last().params = {
+        {"N", "label", "100", "Number of wave components"},
+        {"Hs", "scalar", "2.0", "Significant wave height [m]"},
+        {"Tp", "scalar", "8.0", "Peak spectral period [s]"},
+        {"gamma", "scalar", "3.3", "Peak enhancement factor (1=PiersonMoskowitz)"},
+        {"direction", "vector", "(1 0 0)", "Mean wave direction"},
+        {"spreadingCoeff", "scalar", "2.0", "Directional spreading coefficient"},
+        {"writeSpectrum", "Switch", "true", "Output wave spectrum data"},
+    };
+    m_waves2FoamSections.append({"Multiple Waves", "Superposition of multiple wave systems.", {},
+        "\"wave1\"\n{\n    waveType    stokesFirst;\n    height      2.0;\n    period      8.0;\n}\n\n"
+        "\"wave2\"\n{\n    waveType    stokesSecond;\n    height      1.0;\n    period      4.0;\n}\n"});
+    m_waves2FoamSections.last().params = {
+        {"waveNames", "word list", "(wave1 wave2)", "Named wave systems for superposition"},
     };
 }

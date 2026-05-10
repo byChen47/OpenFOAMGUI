@@ -67,6 +67,7 @@ private:
     void initExtrudeMeshData();
     void initPostProcessData();
     void initWavePropertiesData();
+    void initWaves2FoamData();
     void showSection(const DictSection &section);
 
     QLabel       *m_headerLabel;
@@ -96,6 +97,7 @@ private:
     QVector<DictSection> m_extrudeMeshSections;
     QVector<DictSection> m_postProcessSections;
     QVector<DictSection> m_wavePropertiesSections;
+    QVector<DictSection> m_waves2FoamSections;
     QVector<DictSection> *m_currentSections = nullptr;
     DictSection    m_currentSection;
     QMap<QString, QString> m_userValues;
