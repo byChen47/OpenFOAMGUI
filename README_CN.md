@@ -14,13 +14,14 @@
 | **代码编辑器** | 多标签页，语法高亮，行号，三类自动补全，自动缩进 |
 | **C++ 补全** | 200+ STL 关键词：容器、算法、智能指针、流 |
 | **Python 补全** | Python 3 内置函数、numpy/pandas |
-| **OpenFOAM 补全** | 250+ BC 类型、格式、求解器、湍流模型 |
+| **OpenFOAM 补全** | 500+ 关键词：120+ 求解器、BC 类型、湍流模型、Shell 脚本 |
 | **#include 头文件** | 输入 `#include <` 触发 50+ 头文件建议 |
-| **边界条件** | RTM 参数表、100+ BC 类型、Patch 浏览器、智能推荐 |
+| **边界条件** | RTM 参数表、120+ BC 类型、Patch 浏览器、智能推荐 |
 | **湍流模型** | RAS/LES 模型配置，模型参数 |
 | **格式与求解器** | 结构化编辑 `fvSchemes` 和 `fvSolution` |
 | **snappyHexMesh** | 完整 `snappyHexMeshDict` 配置面板 |
-| **通用字典** | `blockMeshDict`、`controlDict`、`decomposeParDict` 等 |
+| **字典面板** | 22+ 字典类型：`blockMeshDict`、`controlDict`、`waveProperties`（7 种波浪模型）等 |
+| **拖拽调整** | 拖拽分割条自由调整面板区域大小（参数表/预览/截面列表） |
 | **Sync Boundaries** | 一键同步 `blockMeshDict` 边界 → 全部 `0/` 场文件 |
 | **文件查看器** | PNG/JPG/SVG/EPS（缩放）；PDF/Office 系统默认 |
 | **Run Python** | 编辑器运行 `.py`，可配置解释器路径 |
@@ -52,7 +53,7 @@
 ## 编辑器功能
 
 ### 自动补全
-三类独立系统，通过 **Edit** 菜单开关。输入 2+ 字符触发。
+三类独立系统（C++、Python、OpenFOAM），通过 **Edit** 菜单开关。输入 2+ 字符触发。OpenFOAM 补全含 120+ 求解器、Shell 脚本（Allrun/Allclean）及工具，覆盖 v2012–v2512 全版本。Bash 文件也触发 OF 补全，方便编辑运行脚本。
 
 ### 自动缩进
 Enter 保持缩进。空行 `{` 生成代码块。`{}` 中 Enter 推下 `}`。
@@ -118,21 +119,21 @@ OpenFOAMGUI/
 ├── .readthedocs.yaml          # Read the Docs 配置
 ├── mkdocs.yml                 # MkDocs 文档配置
 ├── docs/                      # 在线文档源文件
-├── src/                       # 源代码（17 对源文件）
+├── src/                       # 源代码（19 对源文件）
 │   ├── main.cpp, mainwindow.* # 入口 + 主窗口
-│   ├── casebrowser.*          # 算例树（延迟加载）
-│   ├── codeeditor.*           # 编辑器 + 自动补全
+│   ├── casebrowser.*          # 算例树（延迟加载，重命名）
+│   ├── codeeditor.*           # 编辑器 + 500+ 关键词自动补全
 │   ├── fileviewer.*           # 图片/EPS/PDF/Office 查看器
 │   ├── ofhighlighter.*        # OpenFOAM/C++ 语法高亮
 │   ├── ofparser.*             # OpenFOAM 文件解析
 │   ├── ofmeshreader.*         # OpenFOAM polyMesh 读取
 │   ├── languagedetector.*     # 语言检测
 │   ├── linenumberarea.*       # 行号边栏
-│   ├── bcpanel.* + bctypedatabase.*  # BC 面板 + 100+ BC
+│   ├── bcpanel.* + bctypedatabase.*  # BC 面板 + 120+ BC 类型
 │   ├── turbulencepanel.* + turbulencemodeldatabase.*
 │   ├── schemespanel.*         # fvSchemes / fvSolution
 │   ├── snappypanel.*          # snappyHexMeshDict
-│   ├── dictpanel.*            # 通用字典
+│   ├── dictpanel.*            # 22+ 字典类型（waveProperties 等）
 │   └── bychen.ico             # 应用图标
 ├── CHANGELOG.md, README.md, README_CN.md
 └── qt.conf, resources.qrc, OpenFOAMGUI.pro

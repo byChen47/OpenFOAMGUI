@@ -74,13 +74,16 @@ void DictPanel::setupUI()
     ll->addWidget(m_sectionList);
     ms->addWidget(lp);
 
-    auto *rp = new QWidget(); auto *rl = new QVBoxLayout(rp); rl->setContentsMargins(6,4,6,4); rl->setSpacing(4);
+    // ── Right side: vertical splitter (param tree ⇅ preview) ──
+    auto *vsplit = new QSplitter(Qt::Vertical); vsplit->setChildrenCollapsible(false);
+
+    auto *topW = new QWidget(); auto *tl = new QVBoxLayout(topW); tl->setContentsMargins(0,0,0,0); tl->setSpacing(4);
     m_sectionDesc = new QLabel(); m_sectionDesc->setWordWrap(true);
     m_sectionDesc->setStyleSheet("color: #555; font-size: 11px; padding: 4px 6px; background: #FFFFF5; border: 1px solid #F0E0B0; border-radius: 3px;");
-    rl->addWidget(m_sectionDesc);
+    tl->addWidget(m_sectionDesc);
     auto *ph = new QLabel("Parameters (right-click to insert, double-click Default to edit):");
     ph->setStyleSheet("font-weight: bold; color: #555; font-size: 11px; margin-top: 4px;");
-    rl->addWidget(ph);
+    tl->addWidget(ph);
 
     m_paramTree = new QTreeWidget();
     m_paramTree->setHeaderLabels({"Parameter", "Type", "Default", "Description"});
@@ -88,24 +91,32 @@ void DictPanel::setupUI()
     m_paramTree->setAlternatingRowColors(true);
     m_paramTree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_paramTree->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked);
-    m_paramTree->setMinimumHeight(150);
+    m_paramTree->setMinimumHeight(100);
     m_paramTree->setStyleSheet(
         "QTreeWidget { font-size: 11px; border: 1px solid #DDD; border-radius: 3px; }"
         "QTreeWidget::item { padding: 2px 4px; }"
         "QTreeWidget::item:selected { background: #E67E22; color: white; }"
         "QHeaderView::section { background: #EEE; padding: 3px 6px; font-size: 10px; font-weight: bold; border: none; }");
-    rl->addWidget(m_paramTree, 2);
+    tl->addWidget(m_paramTree, 1);
+    vsplit->addWidget(topW);
 
+    auto *btmW = new QWidget(); auto *bl = new QVBoxLayout(btmW); bl->setContentsMargins(0,0,0,0); bl->setSpacing(2);
     auto *exHdr = new QLabel("Sample Block (right-click section to insert):");
-    exHdr->setStyleSheet("font-weight: bold; color: #555; font-size: 11px; margin-top: 4px;");
-    rl->addWidget(exHdr);
+    exHdr->setStyleSheet("font-weight: bold; color: #555; font-size: 11px;");
+    bl->addWidget(exHdr);
     m_previewEdit = new QTextEdit(); m_previewEdit->setReadOnly(true);
-    m_previewEdit->setFont(QFont("Consolas", 10)); m_previewEdit->setMaximumHeight(120);
+    m_previewEdit->setFont(QFont("Consolas", 10)); m_previewEdit->setMinimumHeight(60);
     m_previewEdit->setStyleSheet("QTextEdit { background: #1E1E1E; color: #DCDCDC; border: 1px solid #333; border-radius: 3px; padding: 6px; }");
-    rl->addWidget(m_previewEdit);
+    bl->addWidget(m_previewEdit, 1);
+    vsplit->addWidget(btmW);
 
-    ms->addWidget(rp); ms->setStretchFactor(0,30); ms->setStretchFactor(1,70);
-    root->addWidget(ms,1);
+    vsplit->setStretchFactor(0, 65);
+    vsplit->setStretchFactor(1, 35);
+
+    ms->addWidget(vsplit);
+    ms->setStretchFactor(0, 25);
+    ms->setStretchFactor(1, 75);
+    root->addWidget(ms, 1);
 
     connect(m_sectionList, &QListWidget::currentItemChanged, this, &DictPanel::onSectionChanged);
     connect(m_paramTree, &QTreeWidget::customContextMenuRequested, this, &DictPanel::onParamContextMenu);
@@ -455,8 +466,10 @@ void DictPanel::onSectionChanged(QListWidgetItem *item)
 {
     if (!item || !m_currentSections) return;
     int idx = m_sectionList->row(item);
-    if (idx >= 0 && idx < m_currentSections->size())
+    if (idx >= 0 && idx < m_currentSections->size()) {
+        m_userValues.clear();
         showSection((*m_currentSections)[idx]);
+    }
 }
 
 void DictPanel::showSection(const DictSection &section)
@@ -1129,72 +1142,318 @@ void DictPanel::initPostProcessData() {
 // ── waveProperties ───────────────────────────────────────────
 void DictPanel::initWavePropertiesData() {
     m_wavePropertiesSections.clear();
-    m_wavePropertiesSections.append({"Airy (StokesI)", "Linear wave theory. Small amplitude, deep/shallow water.", {},
-        "waveProperties\n{\n    seaLevel    0;\n\n"
-        "    StokesI\n    {\n        depth       10;\n"
-        "        waveLength  50;\n        waveHeight  2;\n"
-        "        wavePhase   0;\n    }\n}\n"});
+
+    // ── 1. StokesI (linear / Airy) ──
+    m_wavePropertiesSections.append({"StokesI", "First-order Stokes (linear) wave. Small amplitude, deep/shallow water.", {},
+        "inlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       StokesI;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "\n"
+        "    waveHeight      0.05;\n"
+        "\n"
+        "    waveAngle       0.0;\n"
+        "\n"
+        "    rampTime        3.0;\n"
+        "\n"
+        "    activeAbsorption yes;\n"
+        "\n"
+        "    wavePeriod      3.0;\n"
+        "}\n"
+        "\n"
+        "outlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       shallowWaterAbsorption;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "}\n"});
     m_wavePropertiesSections.last().params = {
-        {"seaLevel", "scalar", "0", "Still water level [m]"},
-        {"waveModel", "word", "StokesI", "Wave model: StokesI / StokesII / StokesV / cnoidal / streamFunction / irregular"},
-        {"depth", "scalar", "10", "Water depth [m]"},
-        {"waveLength", "scalar", "50", "Wave length [m]"},
-        {"waveHeight", "scalar", "2", "Wave height (2×amplitude) [m]"},
-        {"wavePhase", "scalar", "0", "Wave phase offset [rad]"},
-        {"direction", "vector", "(1 0 0)", "Wave propagation direction"},
+        {"alpha", "word", "alpha.water", "Phase fraction field name"},
+        {"waveModel", "word", "StokesI", "StokesI / StokesII / StokesV / cnoidal / streamFunction / irregularMultiDirectional / Boussinesq"},
+        {"nPaddle", "label", "1", "Number of wave generation paddles"},
+        {"waveHeight", "scalar", "0.05", "Wave height [m]"},
+        {"waveAngle", "scalar", "0.0", "Wave propagation angle [deg]"},
+        {"rampTime", "scalar", "3.0", "Ramp-up time for wave generation [s]"},
+        {"activeAbsorption", "word", "yes", "Active wave absorption: yes / no"},
+        {"wavePeriod", "scalar", "3.0", "Wave period [s]"},
     };
+
+    // ── 2. StokesII ──
     m_wavePropertiesSections.append({"StokesII", "Second-order Stokes wave. Moderate wave steepness.", {},
-        "StokesII\n{\n    depth       10;\n    waveLength  50;\n"
-        "    waveHeight  2;\n    wavePhase   0;\n}\n"});
+        "inlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       StokesII;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "\n"
+        "    waveHeight      0.05;\n"
+        "\n"
+        "    waveAngle       0.0;\n"
+        "\n"
+        "    rampTime        3.0;\n"
+        "\n"
+        "    activeAbsorption yes;\n"
+        "\n"
+        "    wavePeriod      3.0;\n"
+        "}\n"
+        "\n"
+        "outlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       shallowWaterAbsorption;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "}\n"});
     m_wavePropertiesSections.last().params = {
-        {"depth", "scalar", "10", "Water depth [m]"},
-        {"waveLength", "scalar", "50", "Wave length [m]"},
-        {"waveHeight", "scalar", "2", "Wave height [m]"},
-        {"wavePhase", "scalar", "0", "Wave phase [rad]"},
+        {"alpha", "word", "alpha.water", "Phase fraction field name"},
+        {"waveModel", "word", "StokesII", "Wave model"},
+        {"nPaddle", "label", "1", "Number of wave generation paddles"},
+        {"waveHeight", "scalar", "0.05", "Wave height [m]"},
+        {"waveAngle", "scalar", "0.0", "Wave propagation angle [deg]"},
+        {"rampTime", "scalar", "3.0", "Ramp-up time [s]"},
+        {"activeAbsorption", "word", "yes", "Active wave absorption: yes / no"},
+        {"wavePeriod", "scalar", "3.0", "Wave period [s]"},
     };
+
+    // ── 3. StokesV ──
     m_wavePropertiesSections.append({"StokesV", "Fifth-order Stokes wave. High wave steepness.", {},
-        "StokesV\n{\n    depth       10;\n    waveLength  50;\n"
-        "    waveHeight  2;\n    wavePhase   0;\n}\n"});
+        "inlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       StokesV;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "\n"
+        "    waveHeight      0.1;\n"
+        "\n"
+        "    waveAngle       0.0;\n"
+        "\n"
+        "    rampTime        4.0;\n"
+        "\n"
+        "    activeAbsorption yes;\n"
+        "\n"
+        "    wavePeriod      2.0;\n"
+        "}\n"
+        "\n"
+        "outlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       shallowWaterAbsorption;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "}\n"});
     m_wavePropertiesSections.last().params = {
-        {"depth", "scalar", "10", "Water depth [m]"},
-        {"waveLength", "scalar", "50", "Wave length [m]"},
-        {"waveHeight", "scalar", "2", "Wave height [m]"},
-        {"wavePhase", "scalar", "0", "Wave phase [rad]"},
+        {"alpha", "word", "alpha.water", "Phase fraction field name"},
+        {"waveModel", "word", "StokesV", "Wave model"},
+        {"nPaddle", "label", "1", "Number of wave generation paddles"},
+        {"waveHeight", "scalar", "0.1", "Wave height [m]"},
+        {"waveAngle", "scalar", "0.0", "Wave propagation angle [deg]"},
+        {"rampTime", "scalar", "4.0", "Ramp-up time [s]"},
+        {"activeAbsorption", "word", "yes", "Active wave absorption: yes / no"},
+        {"wavePeriod", "scalar", "2.0", "Wave period [s]"},
     };
+
+    // ── 4. Cnoidal ──
     m_wavePropertiesSections.append({"Cnoidal", "Cnoidal wave theory. Shallow water, finite amplitude.", {},
-        "cnoidal\n{\n    depth       5;\n    waveLength  30;\n"
-        "    waveHeight  1.5;\n    wavePhase   0;\n    m           0.9;\n}\n"});
+        "inlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       cnoidal;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "\n"
+        "    waveHeight      0.1;\n"
+        "\n"
+        "    waveAngle       0.0;\n"
+        "\n"
+        "    rampTime        6.0;\n"
+        "\n"
+        "    activeAbsorption yes;\n"
+        "\n"
+        "    wavePeriod      4.0;\n"
+        "}\n"
+        "\n"
+        "outlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       shallowWaterAbsorption;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "}\n"});
     m_wavePropertiesSections.last().params = {
-        {"depth", "scalar", "5", "Water depth [m]"},
-        {"waveLength", "scalar", "30", "Wave length [m]"},
-        {"waveHeight", "scalar", "1.5", "Wave height [m]"},
-        {"wavePhase", "scalar", "0", "Wave phase [rad]"},
-        {"m", "scalar", "0.9", "Elliptic parameter (0–1). 0=sinusoidal, 1=solitary"},
+        {"alpha", "word", "alpha.water", "Phase fraction field name"},
+        {"waveModel", "word", "cnoidal", "Wave model"},
+        {"nPaddle", "label", "1", "Number of wave generation paddles"},
+        {"waveHeight", "scalar", "0.1", "Wave height [m]"},
+        {"waveAngle", "scalar", "0.0", "Wave propagation angle [deg]"},
+        {"rampTime", "scalar", "6.0", "Ramp-up time [s]"},
+        {"activeAbsorption", "word", "yes", "Active wave absorption: yes / no"},
+        {"wavePeriod", "scalar", "4.0", "Wave period [s]"},
     };
-    m_wavePropertiesSections.append({"Stream Function", "Stream function wave. Highly accurate, finite amplitude.", {},
-        "streamFunction\n{\n    depth       10;\n    waveLength  50;\n"
-        "    waveHeight  2;\n    wavePhase   0;\n    uMean       0;\n    nTerms      5;\n}\n"});
+
+    // ── 5. Stream Function ──
+    m_wavePropertiesSections.append({"Stream Function", "Stream function wave. High accuracy, finite amplitude. Supports uMean, waveLength, Bjs/Ejs coefficients.", {},
+        "inlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       streamFunction;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "\n"
+        "    waveHeight      0.1517;\n"
+        "\n"
+        "    waveAngle       0.0;\n"
+        "\n"
+        "    rampTime        6.034;\n"
+        "\n"
+        "    activeAbsorption yes;\n"
+        "\n"
+        "    wavePeriod      3.017;\n"
+        "\n"
+        "    uMean           2.0825;\n"
+        "\n"
+        "    waveLength      6.2832;\n"
+        "\n"
+        "    Bjs\n"
+        "    (\n"
+        "        8.6669014e-002\n"
+        "        2.4849799e-002\n"
+        "    );\n"
+        "\n"
+        "    Ejs\n"
+        "    (\n"
+        "        5.6009609e-002\n"
+        "        3.1638171e-002\n"
+        "    );\n"
+        "}\n"
+        "\n"
+        "outlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       shallowWaterAbsorption;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "}\n"});
     m_wavePropertiesSections.last().params = {
-        {"depth", "scalar", "10", "Water depth [m]"},
-        {"waveLength", "scalar", "50", "Wave length [m]"},
-        {"waveHeight", "scalar", "2", "Wave height [m]"},
-        {"wavePhase", "scalar", "0", "Wave phase [rad]"},
-        {"uMean", "scalar", "0", "Mean streaming velocity [m/s]"},
-        {"nTerms", "label", "5", "Number of Fourier terms"},
+        {"alpha", "word", "alpha.water", "Phase fraction field name"},
+        {"waveModel", "word", "streamFunction", "Wave model"},
+        {"nPaddle", "label", "1", "Number of wave generation paddles"},
+        {"waveHeight", "scalar", "0.1517", "Wave height [m]"},
+        {"waveAngle", "scalar", "0.0", "Wave propagation angle [deg]"},
+        {"rampTime", "scalar", "6.034", "Ramp-up time [s]"},
+        {"activeAbsorption", "word", "yes", "Active wave absorption: yes / no"},
+        {"wavePeriod", "scalar", "3.017", "Wave period [s]"},
+        {"uMean", "scalar", "2.0825", "Mean streaming velocity [m/s]"},
+        {"waveLength", "scalar", "6.2832", "Wave length [m]"},
+        {"Bjs", "scalarList", "(...)", "B coefficients (Stream function solution)"},
+        {"Ejs", "scalarList", "(...)", "E coefficients (Stream function solution)"},
     };
-    m_wavePropertiesSections.append({"Irregular (JONSWAP)", "Irregular wave spectrum. JONSWAP (North Sea).", {},
-        "irregular\n{\n    spectrum    JONSWAP;\n    N           100;\n"
-        "    waveHeight  2;\n    wavePeriod  8;\n    depth       10;\n"
-        "    gamma       3.3;\n}\n"});
+
+    // ── 6. Irregular Multi-Directional ──
+    m_wavePropertiesSections.append({"Irregular Multi-Dir", "Irregular multi-directional sea state. Requires wavePeriods / waveHeights / wavePhases / waveDirs arrays.", {},
+        "inlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       irregularMultiDirectional;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "\n"
+        "    rampTime        18.0;\n"
+        "\n"
+        "    activeAbsorption yes;\n"
+        "\n"
+        "    wavePeriods\n"
+        "    // N_spectra  N_directions\n"
+        "    // (\n"
+        "    //     (Tp11 Tp12 ...)\n"
+        "    //     (Tp21 Tp22 ...)\n"
+        "    //     ...\n"
+        "    // );\n"
+        "    ;\n"
+        "\n"
+        "    waveHeights\n"
+        "    // Same layout as wavePeriods\n"
+        "    ;\n"
+        "\n"
+        "    wavePhases\n"
+        "    // Same layout as wavePeriods (random phases 0-2pi)\n"
+        "    ;\n"
+        "\n"
+        "    waveDirs\n"
+        "    // Same layout as wavePeriods (angles in degrees)\n"
+        "    ;\n"
+        "}\n"
+        "\n"
+        "outlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       shallowWaterAbsorption;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "}\n"});
     m_wavePropertiesSections.last().params = {
-        {"spectrum", "word", "JONSWAP", "JONSWAP / PiersonMoskowitz"},
-        {"N", "label", "100", "Number of wave components"},
-        {"waveHeight", "scalar", "2", "Significant wave height (Hs) [m]"},
-        {"wavePeriod", "scalar", "8", "Peak spectral period (Tp) [s]"},
-        {"depth", "scalar", "10", "Water depth [m]"},
-        {"gamma", "scalar", "3.3", "Peak enhancement factor (1=PM, 3.3=JONSWAP)"},
-        {"direction", "vector", "(1 0 0)", "Mean wave direction"},
-        {"spreadingCoefficient", "scalar", "2", "Directional spreading coefficient"},
+        {"alpha", "word", "alpha.water", "Phase fraction field name"},
+        {"waveModel", "word", "irregularMultiDirectional", "Wave model"},
+        {"nPaddle", "label", "1", "Number of wave generation paddles"},
+        {"rampTime", "scalar", "18.0", "Ramp-up time [s]"},
+        {"activeAbsorption", "word", "yes", "Active wave absorption: yes / no"},
+        {"wavePeriods", "scalarListList", "(...)", "2D array: [N_spectra][N_directions] wave periods [s]"},
+        {"waveHeights", "scalarListList", "(...)", "2D array: [N_spectra][N_directions] wave heights [m]"},
+        {"wavePhases", "scalarListList", "(...)", "2D array: [N_spectra][N_directions] wave phases [rad]"},
+        {"waveDirs", "scalarListList", "(...)", "2D array: [N_spectra][N_directions] wave directions [deg]"},
+    };
+
+    // ── 7. Solitary (Boussinesq) ──
+    m_wavePropertiesSections.append({"Solitary (Boussinesq)", "Solitary wave using Boussinesq model. Single isolated wave.", {},
+        "inlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       Boussinesq;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "\n"
+        "    waveHeight      0.3;\n"
+        "\n"
+        "    waveAngle       0.0;\n"
+        "\n"
+        "    activeAbsorption yes;\n"
+        "\n"
+        "    wavePeriod      0.0;\n"
+        "}\n"
+        "\n"
+        "outlet\n"
+        "{\n"
+        "    alpha           alpha.water;\n"
+        "\n"
+        "    waveModel       shallowWaterAbsorption;\n"
+        "\n"
+        "    nPaddle         1;\n"
+        "}\n"});
+    m_wavePropertiesSections.last().params = {
+        {"alpha", "word", "alpha.water", "Phase fraction field name"},
+        {"waveModel", "word", "Boussinesq", "Wave model (Boussinesq = solitary)"},
+        {"nPaddle", "label", "1", "Number of wave generation paddles"},
+        {"waveHeight", "scalar", "0.3", "Wave height [m]"},
+        {"waveAngle", "scalar", "0.0", "Wave propagation angle [deg]"},
+        {"activeAbsorption", "word", "yes", "Active wave absorption: yes / no"},
+        {"wavePeriod", "scalar", "0.0", "Wave period (0 = solitary) [s]"},
     };
 }
 

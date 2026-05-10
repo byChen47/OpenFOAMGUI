@@ -206,12 +206,72 @@ static QStringList ofKeywords() { return {
     "IOdictionary","IOobject","IOField","autoPtr","tmp","PtrList",
     "Switch","word","scalar","vector","tensor","symmTensor","sphericalTensor",
     "label","HashTable","dictionary","Foam","endl","nl","tab",
-    // ── OpenFOAM v2012–v2512 additions ──
-    // Solvers
-    "interFoam","icoFoam","simpleFoam","pisoFoam","pimpleFoam",
-    "chtMultiRegionFoam","reactingFoam","sprayFoam","coalChemistryFoam",
-    "overInterDyMFoam","overPimpleDyMFoam","nonNewtonianIcoFoam",
-    "acousticFoam","shallowWaterFoam","particleFoam",
+    // ── OpenFOAM v2012–v2512 Solvers ──
+    // Basic incompressible
+    "icoFoam","simpleFoam","pisoFoam","pimpleFoam",
+    "porousSimpleFoam","SRFSimpleFoam","SRFPimpleFoam",
+    "nonNewtonianIcoFoam","boundaryFoam","shallowWaterFoam",
+    // Compressible
+    "rhoCentralFoam","rhoPimpleFoam","rhoSimpleFoam","rhoPorousSimpleFoam",
+    "sonicFoam","sonicLiquidFoam","sonicDyMFoam",
+    "rhoReactingFoam","rhoReactingBuoyantFoam","rhoPimpleAdiabaticFoam",
+    // Multiphase — interFoam family
+    "interFoam","interIsoFoam","interMixingFoam",
+    "interPhaseChangeFoam","interPhaseChangeDyMFoam",
+    "compressibleInterFoam","compressibleInterIsoFoam",
+    "compressibleInterDyMFoam","compressibleMultiphaseInterFoam",
+    "compressibleInterFilmFoam","multiphaseInterFoam",
+    "interCondensatingEvaporatingFoam","icoReactingMultiphaseInterFoam",
+    "twoLiquidMixingFoam","liquidFilmFoam",
+    // Multiphase — Euler-Euler
+    "multiphaseEulerFoam","reactingMultiphaseEulerFoam",
+    "reactingTwoPhaseEulerFoam","twoPhaseEulerFoam",
+    // Multiphase — cavitation / drift
+    "cavitatingFoam","cavitatingDyMFoam","driftFluxFoam",
+    // Multiphase — free surface
+    "potentialFreeSurfaceFoam","potentialFreeSurfaceDyMFoam",
+    // Multiphase — VoF phase change etc
+    "VoFSolidificationMeltingSource",
+    // Buoyancy / heat transfer
+    "buoyantPimpleFoam","buoyantSimpleFoam",
+    "buoyantBoussinesqPimpleFoam","buoyantBoussinesqSimpleFoam",
+    "chtMultiRegionFoam","chtMultiRegionSimpleFoam",
+    "chtMultiRegionTwoPhaseEulerFoam","thermoFoam","chemFoam",
+    // Combustion / reacting
+    "reactingFoam","reactingParcelFoam","reactingHeterogenousParcelFoam",
+    "sprayFoam","sprayDyMFoam","engineFoam","coldEngineFoam",
+    "coalChemistryFoam","XiFoam","XiDyMFoam","XiEngineFoam",
+    "fireFoam","PDRFoam","PDRFoamAutoRefine",
+    "simpleSprayFoam","simpleCoalParcelFoam","simpleReactingParcelFoam",
+    // Lagrangian
+    "DPMFoam","DPMDyMFoam","MPPICFoam","MPPICDyMFoam","MPPICInterFoam",
+    "kinematicParcelFoam","uncoupledKinematicParcelFoam",
+    "uncoupledKinematicParcelDyMFoam",
+    "icoUncoupledKinematicParcelFoam","icoUncoupledKinematicParcelDyMFoam",
+    "particleFoam",
+    // Solid stress
+    "solidDisplacementFoam","solidEquilibriumDisplacementFoam","solidFoam",
+    // DNS / molecular
+    "dnsFoam","dsmcFoam","mdFoam","mdEquilibrationFoam",
+    // Electromagnetics / MHD
+    "electrostaticFoam","magneticFoam","mhdFoam",
+    // Financial
+    "financialFoam",
+    // Overset (v1912+)
+    "overSimpleFoam","overPimpleDyMFoam","overInterDyMFoam",
+    "overCompressibleInterDyMFoam","overBuoyantPimpleDyMFoam",
+    "overRhoSimpleFoam","overRhoPimpleDyMFoam","overPotentialFoam",
+    "overLaplacianDyMFoam","overInterPhaseChangeDyMFoam",
+    // Acoustic
+    "acousticFoam",
+    // Surfactant
+    "surfactantFoam","sphereSurfactantFoam",
+    // Adjoint
+    "adjointShapeOptimizationFoam","adjointOptimisationFoam",
+    // Solitary / other
+    "laplacianFoam","potentialFoam","scalarTransportFoam",
+    // v2306+ modular solver framework
+    "foamRun","foamMultiRun",
     // fvModels (v2112+)
     "fvModels","fvConstraints","fvOptions",
     // Function objects
@@ -339,6 +399,19 @@ static QStringList ofKeywords() { return {
     "controlDict","fvSchemes","fvSolution","createPatchDict",
     "renumberMeshDict","refineMeshDict","extrudeMeshDict",
     "mirrorMeshDict","transformPointsDict","surfaceTransformPointsDict",
+    // ── Shell / run scripts ──
+    "Allrun","Allclean","Allmesh","Allrun-parallel","Alltest",
+    "Allprepare","Allpre","Allconfigure",
+    "runApplication","runParallel",
+    "getApplication","getNumberOfProcessors",
+    "Foam::Time","Foam::argList","Foam::OSspecific",
+    "blockMesh","decomposePar","reconstructPar","renumberMesh",
+    "snappyHexMesh","checkMesh","createPatch","extrudeMesh",
+    "mirrorMesh","transformPoints","surfaceTransformPoints",
+    "topoSet","subsetMesh","refineMesh","stitchMesh","splitMeshRegions",
+    "mapFields","setFields","sample","postProcess",
+    "paraFoam","touch","collapseEdges","splitMesh",
+    "surfaceFind","surfaceSplitByPatch","surfaceRedistributePar",
 };}
 
 // ── Constructor ─────────────────────────────────────────────────
@@ -405,8 +478,11 @@ QStringList CodeEditor::completionWords() const
         if (m_acCpp) words += cppKeywords(); // OF files also use C++/OF classes
         break;
     case FileLanguage::CMake:
+        if (m_acCpp) words = cppKeywords();
+        break;
     case FileLanguage::Bash:
         if (m_acCpp) words = cppKeywords();
+        if (m_acOF)  words += ofKeywords(); // Allrun/Allclean style scripts
         break;
     default:
         // Unknown — use all enabled sets
