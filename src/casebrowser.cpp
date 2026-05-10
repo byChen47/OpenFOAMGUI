@@ -16,7 +16,12 @@
 #include <functional>
 
 // ── Helper: create an editable tree item ──
-static QTreeWidgetItem *newEditableItem(QTreeWidgetItem *parent = nullptr) {
+static QTreeWidgetItem *newEditableItem(QTreeWidgetItem *parent) {
+    auto *item = new QTreeWidgetItem(parent);
+    item->setFlags(item->flags() | Qt::ItemIsEditable);
+    return item;
+}
+static QTreeWidgetItem *newEditableItem(QTreeWidget *parent) {
     auto *item = new QTreeWidgetItem(parent);
     item->setFlags(item->flags() | Qt::ItemIsEditable);
     return item;
