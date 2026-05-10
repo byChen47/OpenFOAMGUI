@@ -699,19 +699,63 @@ void DictPanel::initRefineMeshDictData()
 // ── transportProperties ─────────────────────────────────────────
 void DictPanel::initTransportPropertiesData() {
     m_transportSections.clear();
-    m_transportSections.append({"Transport Model", "Rheology model selection.", {},
-        "transportModel  Newtonian;\n\nnu              [0 2 -1 0 0 0 0] 1e-06;\n"});
+    m_transportSections.append({"Newtonian", "Constant viscosity Newtonian fluid.", {},
+        "transportModel  Newtonian;\n\nnu              nu [0 2 -1 0 0 0 0] 1e-06;\n"});
     m_transportSections.last().params = {
-        {"transportModel", "word", "Newtonian", "Rheology model: Newtonian / CrossPowerLaw / BirdCarreau / HerschelBulkley / powerLaw"},
+        {"transportModel", "word", "Newtonian", "Newtonian"},
         {"nu", "dimensionedScalar", "nu [0 2 -1 0 0 0 0] 1e-06", "Kinematic viscosity [m²/s]"},
-        {"nuInf", "scalar", "0", "Infinite-shear viscosity (CrossPowerLaw/BirdCarreau)"},
-        {"kappa", "scalar", "1", "Consistency index [Pa·s^n] (powerLaw/BirdCarreau)"},
-        {"n", "scalar", "1", "Power-law exponent (n<1: shear-thinning, n>1: shear-thickening)"},
-        {"tauYield", "scalar", "0", "Yield stress [Pa] (HerschelBulkley)"},
-        {"K", "scalar", "0.001", "Consistency index (CrossPowerLaw)"},
-        {"m", "scalar", "1", "Cross-power index (CrossPowerLaw)"},
-        {"a", "scalar", "1", "Time constant (BirdCarreau)"},
-        {"b", "scalar", "0.5", "Transition exponent (BirdCarreau)"},
+    };
+    m_transportSections.append({"CrossPowerLaw", "Shear-rate dependent viscosity (Cross model).", {},
+        "transportModel  CrossPowerLaw;\n\nCrossPowerLawCoeffs\n{\n"
+        "    nu0         nu0 [0 2 -1 0 0 0 0] 0.01;\n"
+        "    nuInf       nuInf [0 2 -1 0 0 0 0] 1e-06;\n"
+        "    m           0.5;\n    n           1.5;\n    K           K [0 0 1 0 0 0 0] 1;\n}\n"});
+    m_transportSections.last().params = {
+        {"transportModel", "word", "CrossPowerLaw", "CrossPowerLaw"},
+        {"nu0", "scalar", "0.01", "Zero-shear kinematic viscosity [m²/s]"},
+        {"nuInf", "scalar", "1e-06", "Infinite-shear viscosity [m²/s]"},
+        {"m", "scalar", "0.5", "Cross-power index (dimensionless)"},
+        {"n", "scalar", "1.5", "Power exponent (dimensionless)"},
+        {"K", "scalar", "1", "Consistency index [s]"},
+    };
+    m_transportSections.append({"BirdCarreau", "Carreau-Yasuda model for polymer solutions/melts.", {},
+        "transportModel  BirdCarreau;\n\nBirdCarreauCoeffs\n{\n"
+        "    nu0         nu0 [0 2 -1 0 0 0 0] 0.01;\n"
+        "    nuInf       nuInf [0 2 -1 0 0 0 0] 1e-06;\n"
+        "    k           k [0 0 1 0 0 0 0] 1;\n    n           0.5;\n"
+        "    a           2;\n    b           1;\n}\n"});
+    m_transportSections.last().params = {
+        {"transportModel", "word", "BirdCarreau", "BirdCarreau"},
+        {"nu0", "scalar", "0.01", "Zero-shear viscosity [m²/s]"},
+        {"nuInf", "scalar", "1e-06", "Infinite-shear viscosity [m²/s]"},
+        {"k", "scalar", "1", "Consistency index [s]"},
+        {"n", "scalar", "0.5", "Power-law exponent"},
+        {"a", "scalar", "2", "Transition parameter"},
+        {"b", "scalar", "1", "Transition exponent"},
+    };
+    m_transportSections.append({"HerschelBulkley", "Yield-stress fluid with power-law viscosity.", {},
+        "transportModel  HerschelBulkley;\n\nHerschelBulkleyCoeffs\n{\n"
+        "    nu0         nu0 [0 2 -1 0 0 0 0] 0.01;\n"
+        "    tau0        tau0 [1 -1 -2 0 0 0 0] 1;\n"
+        "    k           k [0 0 1 0 0 0 0] 0.001;\n    n           0.5;\n}\n"});
+    m_transportSections.last().params = {
+        {"transportModel", "word", "HerschelBulkley", "HerschelBulkley"},
+        {"nu0", "scalar", "0.01", "Zero-shear viscosity [m²/s]"},
+        {"tau0", "scalar", "1", "Yield stress [Pa]"},
+        {"k", "scalar", "0.001", "Consistency index [Pa·s^n]"},
+        {"n", "scalar", "0.5", "Power-law exponent"},
+    };
+    m_transportSections.append({"powerLaw", "Simple power-law non-Newtonian model.", {},
+        "transportModel  powerLaw;\n\npowerLawCoeffs\n{\n"
+        "    nuMax       nuMax [0 2 -1 0 0 0 0] 1e5;\n"
+        "    nuMin       nuMin [0 2 -1 0 0 0 0] 1e-06;\n"
+        "    k           k [0 0 1 0 0 0 0] 0.001;\n    n           0.5;\n}\n"});
+    m_transportSections.last().params = {
+        {"transportModel", "word", "powerLaw", "powerLaw"},
+        {"nuMax", "scalar", "1e5", "Maximum viscosity limit [m²/s]"},
+        {"nuMin", "scalar", "1e-06", "Minimum viscosity limit [m²/s]"},
+        {"k", "scalar", "0.001", "Consistency index [Pa·s^n]"},
+        {"n", "scalar", "0.5", "Power-law exponent (n<1: shear-thinning, n>1: shear-thickening)"},
     };
 }
 
@@ -820,21 +864,48 @@ void DictPanel::initSampleDictData() {
 // ── setFieldsDict ───────────────────────────────────────────────
 void DictPanel::initSetFieldsData() {
     m_setFieldsSections.clear();
-    m_setFieldsSections.append({"Default Values", "Default field configuration.", {},
+    m_setFieldsSections.append({"Default Values", "Background field values for the entire domain.", {},
         "defaultFieldValues\n(\n    volScalarFieldValue alpha.water 0\n"
         "    volVectorFieldValue U (0 0 0)\n);\n"});
     m_setFieldsSections.last().params = {
-        {"defaultFieldValues", "list", "()", "List of volScalarFieldValue / volVectorFieldValue"},
+        {"defaultFieldValues", "list", "()", "List of: volScalarFieldValue <field> <value> / volVectorFieldValue <field> (<x> <y> <z>)"},
     };
-    m_setFieldsSections.append({"Regions", "Geometric regions for field assignment.", {},
-        "regions\n(\n    boxToCell\n    {\n        box (0 0 -1) (1 1 1);\n"
+    m_setFieldsSections.append({"Box Region (boxToCell)", "Assign field values inside a bounding box.", {},
+        "regions\n(\n    boxToCell\n    {\n        box (0 0 -1) (1 1 0.5);\n"
         "        fieldValues\n        (\n            volScalarFieldValue alpha.water 1\n"
         "        );\n    }\n);\n"});
     m_setFieldsSections.last().params = {
-        {"box", "vector vector", "((0 0 0) (1 1 1))", "Bounding box (minX minY minZ) (maxX maxY maxZ)"},
-        {"centre", "vector", "(0 0 0)", "Centre for sphereToCell"},
-        {"radius", "scalar", "0.5", "Radius for sphereToCell"},
-        {"fieldValues", "list", "()", "Field values within the region"},
+        {"box", "vector vector", "((0 0 0) (1 1 1))", "Bounding box: (minX minY minZ) (maxX maxY maxZ)"},
+        {"fieldValues", "list", "()", "Field values within this region"},
+    };
+    m_setFieldsSections.append({"Sphere Region (sphereToCell)", "Assign field values inside a sphere.", {},
+        "regions\n(\n    sphereToCell\n    {\n        centre (0 0 0);\n        radius 0.5;\n"
+        "        fieldValues\n        (\n            volScalarFieldValue alpha.water 1\n"
+        "        );\n    }\n);\n"});
+    m_setFieldsSections.last().params = {
+        {"centre", "vector", "(0 0 0)", "Sphere centre point"},
+        {"radius", "scalar", "0.5", "Sphere radius [m]"},
+        {"fieldValues", "list", "()", "Field values within the sphere"},
+    };
+    m_setFieldsSections.append({"Cylinder Region (cylinderToCell)", "Assign field values inside a cylinder.", {},
+        "regions\n(\n    cylinderToCell\n    {\n        p1 (0 0 0);\n        p2 (0 0 1);\n"
+        "        radius 0.2;\n        fieldValues ( volScalarFieldValue alpha.water 1 );\n    }\n);\n"});
+    m_setFieldsSections.last().params = {
+        {"p1", "vector", "(0 0 0)", "Cylinder axis start point"},
+        {"p2", "vector", "(0 0 1)", "Cylinder axis end point"},
+        {"radius", "scalar", "0.2", "Cylinder radius [m]"},
+        {"fieldValues", "list", "()", "Field values within the cylinder"},
+    };
+    m_setFieldsSections.append({"Surface Region (surfaceToCell)", "Assign field values near a surface.", {},
+        "regions\n(\n    surfaceToCell\n    {\n        file \"surface.stl\";\n"
+        "        outsidePoints ((1 1 1));\n        includeCut false;\n"
+        "        fieldValues ( volScalarFieldValue alpha.water 1 );\n    }\n);\n"});
+    m_setFieldsSections.last().params = {
+        {"file", "fileName", "surface.stl", "Path to surface geometry file (.stl / .obj)"},
+        {"outsidePoints", "vector list", "((1 1 1))", "Points known to be outside the surface"},
+        {"includeCut", "Switch", "false", "Include cells cut by the surface"},
+        {"includeInside", "Switch", "true", "Include cells inside the surface"},
+        {"fieldValues", "list", "()", "Field values assigned to selected cells"},
     };
 }
 
