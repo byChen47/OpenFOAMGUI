@@ -333,6 +333,38 @@ void DictPanel::loadFile(const QString &filePath, const QString &)
         if (m_refineMeshDictSections.isEmpty()) initRefineMeshDictData();
         m_currentSections = &m_refineMeshDictSections;
         title = "refineMesh — Mesh Refinement";
+    } else if (m_fileType == "transportProperties") {
+        if (m_transportSections.isEmpty()) initTransportPropertiesData();
+        m_currentSections = &m_transportSections;
+        title = "Transport Properties — Fluid Rheology";
+    } else if (m_fileType == "thermophysicalProperties") {
+        if (m_thermoSections.isEmpty()) initThermophysicalData();
+        m_currentSections = &m_thermoSections;
+        title = "Thermophysical Properties — Material Model";
+    } else if (m_fileType == "radiationProperties") {
+        if (m_radiationSections.isEmpty()) initRadiationData();
+        m_currentSections = &m_radiationSections;
+        title = "Radiation Properties — Radiative Heat Transfer";
+    } else if (m_fileType == "combustionProperties") {
+        if (m_combustionSections.isEmpty()) initCombustionData();
+        m_currentSections = &m_combustionSections;
+        title = "Combustion Properties — Reaction Model";
+    } else if (m_fileType == "sampleDict") {
+        if (m_sampleDictSections.isEmpty()) initSampleDictData();
+        m_currentSections = &m_sampleDictSections;
+        title = "sampleDict — Data Sampling";
+    } else if (m_fileType == "setFieldsDict") {
+        if (m_setFieldsSections.isEmpty()) initSetFieldsData();
+        m_currentSections = &m_setFieldsSections;
+        title = "setFieldsDict — Field Initialization";
+    } else if (m_fileType == "forces" || m_fileType == "forceCoeffs") {
+        if (m_forcesSections.isEmpty()) initForcesData();
+        m_currentSections = &m_forcesSections;
+        title = "Forces/ForceCoeffs — Force Monitoring";
+    } else if (m_fileType == "fvConstraints") {
+        if (m_fvConstraintsSections.isEmpty()) initFvConstraintsData();
+        m_currentSections = &m_fvConstraintsSections;
+        title = "fvConstraints — Field Constraints";
     } else {
         return;
     }
@@ -638,5 +670,200 @@ void DictPanel::initRefineMeshDictData()
     });
     m_refineMeshDictSections.last().params = {
         {"directions", "word list", "(tan1 tan2 normal)", "Refinement directions. Any combination of tan1/tan2/normal."},
+    };
+}
+
+// ── transportProperties ─────────────────────────────────────────
+void DictPanel::initTransportPropertiesData() {
+    m_transportSections.clear();
+    m_transportSections.append({"Transport Model", "Rheology model selection.", {},
+        "transportModel  Newtonian;\n\nnu              [0 2 -1 0 0 0 0] 1e-06;\n"});
+    m_transportSections.last().params = {
+        {"transportModel", "word", "Newtonian", "Rheology model: Newtonian / CrossPowerLaw / BirdCarreau / HerschelBulkley / powerLaw"},
+        {"nu", "dimensionedScalar", "nu [0 2 -1 0 0 0 0] 1e-06", "Kinematic viscosity [m²/s]"},
+        {"nuInf", "scalar", "0", "Infinite-shear viscosity (CrossPowerLaw/BirdCarreau)"},
+        {"kappa", "scalar", "1", "Consistency index [Pa·s^n] (powerLaw/BirdCarreau)"},
+        {"n", "scalar", "1", "Power-law exponent (n<1: shear-thinning, n>1: shear-thickening)"},
+        {"tauYield", "scalar", "0", "Yield stress [Pa] (HerschelBulkley)"},
+        {"K", "scalar", "0.001", "Consistency index (CrossPowerLaw)"},
+        {"m", "scalar", "1", "Cross-power index (CrossPowerLaw)"},
+        {"a", "scalar", "1", "Time constant (BirdCarreau)"},
+        {"b", "scalar", "0.5", "Transition exponent (BirdCarreau)"},
+    };
+}
+
+// ── thermophysicalProperties ─────────────────────────────────────
+void DictPanel::initThermophysicalData() {
+    m_thermoSections.clear();
+    m_thermoSections.append({"Thermo Type", "Thermo-physical model selection.", {},
+        "thermoType\n{\n    type            heRhoThermo;\n    mixture         pureMixture;\n"
+        "    transport       const;\n    thermo          hConst;\n"
+        "    equationOfState perfectGas;\n    specie          specie;\n    energy          sensibleEnthalpy;\n}\n"});
+    m_thermoSections.last().params = {
+        {"type", "word", "heRhoThermo", "Thermo type: heRhoThermo / hePsiThermo / fluidThermo"},
+        {"mixture", "word", "pureMixture", "Mixture type: pureMixture / reactingMixture / multiComponentMixture"},
+        {"transport", "word", "const", "Transport: const / sutherland / polynomial / tabulated"},
+        {"thermo", "word", "hConst", "Thermodynamics: hConst / eConst / janaf / hPolynomial"},
+        {"equationOfState", "word", "perfectGas", "EOS: perfectGas / icoPolynomial / PengRobinsonGas / rPolynomial"},
+        {"specie", "word", "specie", "Specie type"},
+        {"energy", "word", "sensibleEnthalpy", "Energy form: sensibleEnthalpy / sensibleInternalEnergy / absoluteEnthalpy"},
+    };
+    m_thermoSections.append({"Gas Properties", "Thermodynamic properties for gas phase.", {},
+        "mixture\n{\n    specie\n    {\n        molWeight       28.96;\n    }\n"
+        "    thermodynamics\n    {\n        Hf              0;\n        Sf              0;\n"
+        "        Cp              1005;\n        Cv              718;\n    }\n"
+        "    transport\n    {\n        mu              1.84e-05;\n        Pr              0.71;\n    }\n}\n"});
+    m_thermoSections.last().params = {
+        {"molWeight", "scalar", "28.96", "Molecular weight [g/mol]"},
+        {"Hf", "scalar", "0", "Heat of formation [J/kg]"},
+        {"Sf", "scalar", "0", "Standard entropy [J/kg·K]"},
+        {"Cp", "scalar", "1005", "Specific heat at constant pressure [J/kg·K]"},
+        {"Cv", "scalar", "718", "Specific heat at constant volume [J/kg·K]"},
+        {"mu", "scalar", "1.84e-05", "Dynamic viscosity [Pa·s]"},
+        {"Pr", "scalar", "0.71", "Prandtl number"},
+        {"Tlow", "scalar", "200", "Lower temperature bound [K]"},
+        {"Thigh", "scalar", "5000", "Upper temperature bound [K]"},
+        {"As", "scalar", "1.4792e-06", "Sutherland coefficient [kg/m·s·√K]"},
+        {"Ts", "scalar", "116", "Sutherland temperature [K]"},
+    };
+}
+
+// ── radiationProperties ─────────────────────────────────────────
+void DictPanel::initRadiationData() {
+    m_radiationSections.clear();
+    m_radiationSections.append({"Radiation Model", "Radiative heat transfer model.", {},
+        "radiation       on;\n\nradiationModel  fvDOM;\n\nfvDOMCoeffs\n{\n"
+        "    nPhi        4;\n    nTheta      0;\n    convergence 1e-3;\n"
+        "    maxIter     4;\n}\n"});
+    m_radiationSections.last().params = {
+        {"radiation", "Switch", "on", "Enable/disable radiation"},
+        {"radiationModel", "word", "fvDOM", "Model: fvDOM / P1 / P1Iso / viewFactor / opaqueSolid"},
+        {"nPhi", "label", "4", "Azimuthal discretisation (fvDOM)"},
+        {"nTheta", "label", "0", "Polar discretisation (fvDOM)"},
+        {"convergence", "scalar", "1e-3", "Convergence tolerance (fvDOM)"},
+        {"maxIter", "label", "4", "Max iterations (fvDOM)"},
+        {"absorptionEmissionModel", "word", "none", "Absorption/emission model"},
+        {"scatterModel", "word", "none", "Scattering model"},
+        {"sootModel", "word", "none", "Soot model"},
+    };
+}
+
+// ── combustionProperties ─────────────────────────────────────────
+void DictPanel::initCombustionData() {
+    m_combustionSections.clear();
+    m_combustionSections.append({"Combustion Model", "Reaction and combustion model.", {},
+        "combustionModel  PaSR;\n\nPaSRCoeffs\n{\n    Cmix        0.05;\n"
+        "    kappa       0.5;\n}\n"});
+    m_combustionSections.last().params = {
+        {"combustionModel", "word", "laminar", "laminar / PaSR / EDC / eddyDissipation / diffusion / infinitelyFastChemistry"},
+        {"Cmix", "scalar", "0.05", "Mixing constant (PaSR)"},
+        {"kappa", "scalar", "0.5", "Reaction zone fraction (PaSR)"},
+        {"Ctau", "scalar", "3.0", "Time scale constant (EDC)"},
+        {"active", "Switch", "true", "Enable combustion"},
+    };
+}
+
+// ── sampleDict ───────────────────────────────────────────────────
+void DictPanel::initSampleDictData() {
+    m_sampleDictSections.clear();
+    m_sampleDictSections.append({"Sets", "Lines for sampling.", {},
+        "sets\n(\n    centreLine\n    {\n        type    uniform;\n"
+        "        axis    x;\n        start   (0 0 0.05);\n        end     (1 0 0.05);\n        nPoints 100;\n    }\n);\n"});
+    m_sampleDictSections.last().params = {
+        {"type", "word", "uniform", "midPoint / midPointAndFace / uniform / face / cloud"},
+        {"axis", "word", "x", "Axis for line sampling"},
+        {"start", "vector", "(0 0 0)", "Start point"},
+        {"end", "vector", "(1 0 0)", "End point"},
+        {"nPoints", "label", "100", "Number of sample points"},
+        {"interpolationScheme", "word", "cell", "cell / cellPoint / cellPointFace"},
+        {"setFormat", "word", "raw", "raw / vtk / csv / ensight / json"},
+    };
+    m_sampleDictSections.append({"Surfaces", "Surfaces for sampling.", {},
+        "surfaces\n(\n    yNormal\n    {\n        type        plane;\n"
+        "        planeType   pointAndNormal;\n        pointAndNormalDict { basePoint (0 0 0); normal (0 1 0); }\n"
+        "        interpolate true;\n    }\n);\n"});
+    m_sampleDictSections.last().params = {
+        {"type", "word", "plane", "plane / isoSurface / cuttingPlane / patch"},
+        {"basePoint", "vector", "(0 0 0)", "Base point for plane"},
+        {"normal", "vector", "(0 1 0)", "Normal for plane"},
+        {"interpolate", "Switch", "true", "Interpolate values"},
+        {"isoValue", "scalar", "0.5", "Iso value (isoSurface)"},
+    };
+}
+
+// ── setFieldsDict ───────────────────────────────────────────────
+void DictPanel::initSetFieldsData() {
+    m_setFieldsSections.clear();
+    m_setFieldsSections.append({"Default Values", "Default field configuration.", {},
+        "defaultFieldValues\n(\n    volScalarFieldValue alpha.water 0\n"
+        "    volVectorFieldValue U (0 0 0)\n);\n"});
+    m_setFieldsSections.last().params = {
+        {"defaultFieldValues", "list", "()", "List of volScalarFieldValue / volVectorFieldValue"},
+    };
+    m_setFieldsSections.append({"Regions", "Geometric regions for field assignment.", {},
+        "regions\n(\n    boxToCell\n    {\n        box (0 0 -1) (1 1 1);\n"
+        "        fieldValues\n        (\n            volScalarFieldValue alpha.water 1\n"
+        "        );\n    }\n);\n"});
+    m_setFieldsSections.last().params = {
+        {"box", "vector vector", "((0 0 0) (1 1 1))", "Bounding box (minX minY minZ) (maxX maxY maxZ)"},
+        {"centre", "vector", "(0 0 0)", "Centre for sphereToCell"},
+        {"radius", "scalar", "0.5", "Radius for sphereToCell"},
+        {"fieldValues", "list", "()", "Field values within the region"},
+    };
+}
+
+// ── forces / forceCoeffs ─────────────────────────────────────────
+void DictPanel::initForcesData() {
+    m_forcesSections.clear();
+    m_forcesSections.append({"Forces", "Force and moment monitoring function object.", {},
+        "forces\n{\n    type            forces;\n    libs            (\"libforces.so\");\n"
+        "    patches         (\"walls\");\n    rho             rhoInf;\n    rhoInf          1.2;\n"
+        "    CofR            (0 0 0);\n    writeControl    timeStep;\n    writeInterval   1;\n}\n"});
+    m_forcesSections.last().params = {
+        {"type", "word", "forces", "forces / forceCoeffs"},
+        {"patches", "word list", "(walls)", "List of wall patch names"},
+        {"rho", "word", "rhoInf", "Density field name"},
+        {"rhoInf", "scalar", "1.2", "Freestream density [kg/m³]"},
+        {"CofR", "vector", "(0 0 0)", "Centre of rotation for moment"},
+        {"writeControl", "word", "timeStep", "Output control"},
+        {"writeInterval", "label", "1", "Output interval"},
+    };
+    m_forcesSections.append({"Force Coefficients", "Aerodynamic coefficient monitoring.", {},
+        "forceCoeffs\n{\n    type            forceCoeffs;\n    libs            (\"libforces.so\");\n"
+        "    patches         (\"walls\");\n    rho             rhoInf;\n    rhoInf          1.2;\n"
+        "    liftDir         (0 0 1);\n    dragDir         (1 0 0);\n    pitchAxis       (0 1 0);\n"
+        "    magUInf         10;\n    lRef            1;\n    Aref            1;\n}\n"});
+    m_forcesSections.last().params = {
+        {"liftDir", "vector", "(0 0 1)", "Lift direction"},
+        {"dragDir", "vector", "(1 0 0)", "Drag direction"},
+        {"pitchAxis", "vector", "(0 1 0)", "Pitch axis for moment coefficient"},
+        {"magUInf", "scalar", "10", "Freestream velocity magnitude [m/s]"},
+        {"lRef", "scalar", "1", "Reference length [m]"},
+        {"Aref", "scalar", "1", "Reference area [m²]"},
+    };
+}
+
+// ── fvConstraints (v2112+) ─────────────────────────────────────
+void DictPanel::initFvConstraintsData() {
+    m_fvConstraintsSections.clear();
+    m_fvConstraintsSections.append({"Field Constraints", "Field value constraints.", {},
+        "limitPressure\n{\n    type        limitPressure;\n"
+        "    min         10000;\n    max         500000;\n}\n"});
+    m_fvConstraintsSections.last().params = {
+        {"type", "word", "limitPressure", "limitPressure / limitTemperature / limitVelocity / fixedTemperatureConstraint"},
+        {"min", "scalar", "0", "Minimum allowed value"},
+        {"max", "scalar", "1e20", "Maximum allowed value"},
+        {"phase", "word", "", "Phase name (multiphase)"},
+    };
+    m_fvConstraintsSections.append({"Mean Velocity", "Mean velocity constraint.", {},
+        "meanVelocityForce\n{\n    type            meanVelocityForce;\n"
+        "    selectionMode   all;\n    U               U;\n"
+        "    velocity        (10 0 0);\n    relaxation      0.5;\n}\n"});
+    m_fvConstraintsSections.last().params = {
+        {"type", "word", "meanVelocityForce", "meanVelocityForce"},
+        {"selectionMode", "word", "all", "all / cellZone / cellSet"},
+        {"U", "word", "U", "Velocity field name"},
+        {"velocity", "vector", "(10 0 0)", "Target mean velocity [m/s]"},
+        {"relaxation", "scalar", "0.5", "Relaxation factor (0–1)"},
     };
 }

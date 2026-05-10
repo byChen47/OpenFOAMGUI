@@ -53,6 +53,14 @@ private:
     void initControlDictData();
     void initDecomposeParDictData();
     void initRefineMeshDictData();
+    void initTransportPropertiesData();
+    void initThermophysicalData();
+    void initRadiationData();
+    void initCombustionData();
+    void initSampleDictData();
+    void initSetFieldsData();
+    void initForcesData();
+    void initFvConstraintsData();
     void showSection(const DictSection &section);
 
     QLabel       *m_headerLabel;
@@ -68,6 +76,14 @@ private:
     QVector<DictSection> m_controlDictSections;
     QVector<DictSection> m_decomposeParDictSections;
     QVector<DictSection> m_refineMeshDictSections;
+    QVector<DictSection> m_transportSections;
+    QVector<DictSection> m_thermoSections;
+    QVector<DictSection> m_radiationSections;
+    QVector<DictSection> m_combustionSections;
+    QVector<DictSection> m_sampleDictSections;
+    QVector<DictSection> m_setFieldsSections;
+    QVector<DictSection> m_forcesSections;
+    QVector<DictSection> m_fvConstraintsSections;
     QVector<DictSection> *m_currentSections = nullptr;
     DictSection    m_currentSection;
     QMap<QString, QString> m_userValues;
