@@ -3,6 +3,7 @@
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QPushButton>
 #include <QSplitter>
 #include <QFileInfo>
 #include <QApplication>
