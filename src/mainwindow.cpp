@@ -834,7 +834,18 @@ bool MainWindow::openFileInTab(const QString &filePath)
         m_bcPanelDock->setWindowTitle("snappyHexMesh");
     } else if ((fi2.fileName() == "blockMeshDict" || fi2.fileName() == "topoSetDict"
                 || fi2.fileName() == "dynamicMeshDict" || fi2.fileName() == "controlDict"
-                || fi2.fileName() == "decomposeParDict" || fi2.fileName() == "refineMeshDict")
+                || fi2.fileName() == "decomposeParDict" || fi2.fileName() == "refineMeshDict"
+                || fi2.fileName() == "transportProperties"
+                || fi2.fileName() == "thermophysicalProperties"
+                || fi2.fileName() == "radiationProperties"
+                || fi2.fileName() == "combustionProperties"
+                || fi2.fileName() == "setFieldsDict" || fi2.fileName() == "sampleDict"
+                || fi2.fileName() == "surfaceFeatureExtractDict"
+                || fi2.fileName() == "mapFieldsDict" || fi2.fileName() == "createPatchDict"
+                || fi2.fileName() == "extrudeMeshDict" || fi2.fileName() == "forces"
+                || fi2.fileName() == "forceCoeffs" || fi2.fileName() == "fvConstraints"
+                || fi2.fileName() == "mirrorMeshDict" || fi2.fileName() == "renumberMeshDict"
+                || fi2.fileName() == "transformPointsDict")
                && lang == FileLanguage::OpenFOAM) {
         m_dictPanel->loadFile(filePath, content);
         m_rightPanelStack->setCurrentIndex(4);
@@ -1030,7 +1041,18 @@ void MainWindow::onTabChanged(int index)
             m_bcPanelDock->setWindowTitle("snappyHexMesh");
         } else if ((fi.fileName() == "blockMeshDict" || fi.fileName() == "topoSetDict"
                     || fi.fileName() == "dynamicMeshDict" || fi.fileName() == "controlDict"
-                    || fi.fileName() == "decomposeParDict" || fi.fileName() == "refineMeshDict")
+                    || fi.fileName() == "decomposeParDict" || fi.fileName() == "refineMeshDict"
+                    || fi.fileName() == "transportProperties"
+                    || fi.fileName() == "thermophysicalProperties"
+                    || fi.fileName() == "radiationProperties"
+                    || fi.fileName() == "combustionProperties"
+                    || fi.fileName() == "setFieldsDict" || fi.fileName() == "sampleDict"
+                    || fi.fileName() == "surfaceFeatureExtractDict"
+                    || fi.fileName() == "mapFieldsDict" || fi.fileName() == "createPatchDict"
+                    || fi.fileName() == "extrudeMeshDict" || fi.fileName() == "forces"
+                    || fi.fileName() == "forceCoeffs" || fi.fileName() == "fvConstraints"
+                    || fi.fileName() == "mirrorMeshDict" || fi.fileName() == "renumberMeshDict"
+                    || fi.fileName() == "transformPointsDict")
                    && editor->language() == FileLanguage::OpenFOAM) {
             m_dictPanel->loadFile(editor->fileName(), editor->toPlainText());
             m_rightPanelStack->setCurrentIndex(4);
