@@ -365,6 +365,27 @@ void DictPanel::loadFile(const QString &filePath, const QString &)
         if (m_fvConstraintsSections.isEmpty()) initFvConstraintsData();
         m_currentSections = &m_fvConstraintsSections;
         title = "fvConstraints — Field Constraints";
+    } else if (m_fileType == "surfaceFeatureExtractDict") {
+        if (m_surfaceFeatureSections.isEmpty()) initSurfaceFeatureExtractData();
+        m_currentSections = &m_surfaceFeatureSections;
+        title = "surfaceFeatureExtractDict — Feature Edge Extraction";
+    } else if (m_fileType == "mapFieldsDict") {
+        if (m_mapFieldsSections.isEmpty()) initMapFieldsData();
+        m_currentSections = &m_mapFieldsSections;
+        title = "mapFieldsDict — Mesh-to-Mesh Field Mapping";
+    } else if (m_fileType == "createPatchDict") {
+        if (m_createPatchSections.isEmpty()) initCreatePatchData();
+        m_currentSections = &m_createPatchSections;
+        title = "createPatchDict — Patch Creation";
+    } else if (m_fileType == "extrudeMeshDict") {
+        if (m_extrudeMeshSections.isEmpty()) initExtrudeMeshData();
+        m_currentSections = &m_extrudeMeshSections;
+        title = "extrudeMeshDict — 2D to 3D Extrusion";
+    } else if (m_fileType == "mirrorMeshDict" || m_fileType == "renumberMeshDict"
+               || m_fileType == "transformPointsDict") {
+        if (m_postProcessSections.isEmpty()) initPostProcessData();
+        m_currentSections = &m_postProcessSections;
+        title = m_fileType + " — Mesh Utility Configuration";
     } else {
         return;
     }
@@ -865,5 +886,109 @@ void DictPanel::initFvConstraintsData() {
         {"U", "word", "U", "Velocity field name"},
         {"velocity", "vector", "(10 0 0)", "Target mean velocity [m/s]"},
         {"relaxation", "scalar", "0.5", "Relaxation factor (0–1)"},
+    };
+}
+
+// ── surfaceFeatureExtractDict ────────────────────────────────────
+void DictPanel::initSurfaceFeatureExtractData() {
+    m_surfaceFeatureSections.clear();
+    m_surfaceFeatureSections.append({"Extraction", "Feature edge extraction settings.", {},
+        "surfaceFeatureExtractDict\n{\n    extractionMethod    extractFromSurface;\n\n"
+        "    extractFromSurfaceCoeffs\n    {\n        includedAngle   150;\n    }\n\n"
+        "    writeFeatureMesh    true;\n}\n"});
+    m_surfaceFeatureSections.last().params = {
+        {"extractionMethod", "word", "extractFromSurface", "extractFromSurface / extractFromFile"},
+        {"includedAngle", "scalar", "150", "Included angle for feature edges [degrees] (0–180)"},
+        {"writeFeatureMesh", "Switch", "true", "Write feature edge mesh"},
+        {"geometricTestOnly", "Switch", "false", "Geometric test only (no refinement)"},
+        {"subsetFeatures", "Switch", "false", "Subset feature edges"},
+        {"nonManifoldEdges", "Switch", "false", "Extract non-manifold edges"},
+        {"openEdges", "Switch", "false", "Extract open edges"},
+    };
+}
+
+// ── mapFieldsDict ───────────────────────────────────────────────
+void DictPanel::initMapFieldsData() {
+    m_mapFieldsSections.clear();
+    m_mapFieldsSections.append({"Mapping", "Mesh-to-mesh field mapping configuration.", {},
+        "mapFieldsDict\n{\n    patchMap\n    (\n        \"movingWall\"\n"
+        "        \"movingWall\"\n    );\n\n    cuttingPatches\n    (\n    );\n"
+        "    mapMethod   cellPointInterpolate;\n}\n"});
+    m_mapFieldsSections.last().params = {
+        {"mapMethod", "word", "cellPointInterpolate", "cellPointInterpolate / nearestCell / mapNearest / cellVolumeWeight"},
+        {"patchMap", "wordRe list", "()", "Patch mapping pairs: (source target)"},
+        {"cuttingPatches", "wordRe list", "()", "Cutting patch names"},
+        {"consistent", "Switch", "true", "Use consistent mapping"},
+    };
+}
+
+// ── createPatchDict ─────────────────────────────────────────────
+void DictPanel::initCreatePatchData() {
+    m_createPatchSections.clear();
+    m_createPatchSections.append({"Patch Creation", "Patch creation from existing geometry.", {},
+        "createPatchDict\n{\n    pointSync false;\n\n    patches\n    (\n"
+        "        {\n            name inlet;\n            patchInfo { type patch; }\n"
+        "            constructFrom patches;\n            patches (\"oldInlet\");\n"
+        "        }\n    );\n}\n"});
+    m_createPatchSections.last().params = {
+        {"pointSync", "Switch", "false", "Synchronise points across coupled patches"},
+        {"name", "word", "patchName", "New patch name"},
+        {"type", "word", "patch", "New patch type: patch / wall / empty / cyclic"},
+        {"constructFrom", "word", "patches", "patches / set / surface"},
+        {"patches", "word list", "()", "Source patch names"},
+    };
+}
+
+// ── extrudeMeshDict ──────────────────────────────────────────────
+void DictPanel::initExtrudeMeshData() {
+    m_extrudeMeshSections.clear();
+    m_extrudeMeshSections.append({"Extrusion", "2D to 3D mesh extrusion.", {},
+        "extrudeMeshDict\n{\n    constructFrom      patch;\n"
+        "    sourceCase         \".\";\n    sourcePatches       (\"front\");\n"
+        "    extrudeModel        linearNormal;\n    nLayers             1;\n"
+        "    expansionRatio      1.0;\n"
+        "    linearNormalCoeffs { thickness 0.001; }\n}\n"});
+    m_extrudeMeshSections.last().params = {
+        {"constructFrom", "word", "patch", "patch / surface / mesh"},
+        {"sourcePatches", "word list", "(front)", "Source patch names to extrude"},
+        {"extrudeModel", "word", "linearNormal", "linearNormal / linearDirection / wedge / sigmaRadial"},
+        {"nLayers", "label", "1", "Number of layers"},
+        {"expansionRatio", "scalar", "1.0", "Expansion ratio between layers"},
+        {"thickness", "scalar", "0.001", "Total extrusion thickness [m] (linearNormal)"},
+        {"direction", "vector", "(0 0 1)", "Extrusion direction (linearDirection)"},
+        {"axis", "vector", "(0 0 1)", "Axis (wedge/sigmaRadial)"},
+        {"angle", "scalar", "360", "Extrusion angle [degrees]"},
+    };
+}
+
+// ── Post-processing utility dicts ────────────────────────────────
+void DictPanel::initPostProcessData() {
+    m_postProcessSections.clear();
+    m_postProcessSections.append({"Mirror Mesh", "Mirror mesh about a plane.", {},
+        "mirrorMeshDict\n{\n    planeType       pointAndNormal;\n"
+        "    pointAndNormalDict\n    {\n        basePoint       (0 0 0);\n"
+        "        normal          (0 1 0);\n    }\n    planeTolerance  1e-06;\n}\n"});
+    m_postProcessSections.last().params = {
+        {"planeType", "word", "pointAndNormal", "Plane definition method"},
+        {"basePoint", "vector", "(0 0 0)", "Point on the mirror plane"},
+        {"normal", "vector", "(0 1 0)", "Plane normal direction"},
+        {"planeTolerance", "scalar", "1e-06", "Plane tolerance"},
+    };
+    m_postProcessSections.append({"Renumber Mesh", "Mesh renumbering for cache optimisation.", {},
+        "renumberMeshDict\n{\n    method          spring;\n    mergeTolerance  1e-06;\n}\n"});
+    m_postProcessSections.last().params = {
+        {"method", "word", "spring", "spring / CuthillMcKee / random / Sloan"},
+        {"mergeTolerance", "scalar", "1e-06", "Point merge tolerance"},
+    };
+    m_postProcessSections.append({"Transform Points", "Scale/rotate/translate mesh points.", {},
+        "transformPointsDict\n{\n    version     2.0;\n    transform   translate;\n"
+        "    translate   (0 0 0);\n    scale       (1 1 1);\n}\n"});
+    m_postProcessSections.last().params = {
+        {"transform", "word", "translate", "translate / rotate / scale / rotateAboutCentre"},
+        {"translate", "vector", "(0 0 0)", "Translation vector [m]"},
+        {"scale", "vector", "(1 1 1)", "Scale factors (x y z)"},
+        {"rotationCentre", "vector", "(0 0 0)", "Rotation centre"},
+        {"rotationAxis", "vector", "(0 0 1)", "Rotation axis"},
+        {"rotationAngle", "scalar", "0", "Rotation angle [degrees]"},
     };
 }

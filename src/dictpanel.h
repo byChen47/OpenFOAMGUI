@@ -61,6 +61,11 @@ private:
     void initSetFieldsData();
     void initForcesData();
     void initFvConstraintsData();
+    void initSurfaceFeatureExtractData();
+    void initMapFieldsData();
+    void initCreatePatchData();
+    void initExtrudeMeshData();
+    void initPostProcessData();
     void showSection(const DictSection &section);
 
     QLabel       *m_headerLabel;
@@ -84,6 +89,11 @@ private:
     QVector<DictSection> m_setFieldsSections;
     QVector<DictSection> m_forcesSections;
     QVector<DictSection> m_fvConstraintsSections;
+    QVector<DictSection> m_surfaceFeatureSections;
+    QVector<DictSection> m_mapFieldsSections;
+    QVector<DictSection> m_createPatchSections;
+    QVector<DictSection> m_extrudeMeshSections;
+    QVector<DictSection> m_postProcessSections;
     QVector<DictSection> *m_currentSections = nullptr;
     DictSection    m_currentSection;
     QMap<QString, QString> m_userValues;
