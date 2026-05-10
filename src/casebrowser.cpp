@@ -503,8 +503,8 @@ void CaseBrowser::onCustomContextMenu(const QPoint &pos)
         menu.addSeparator();
     }
 
-    // Rename — for files and subdirs
-    if (type == "file" || type == "subdir") {
+    // Rename — available for all items (F2 key or context menu)
+    {
         QAction *renameAct = menu.addAction("Rename");
         renameAct->setShortcut(QKeySequence(Qt::Key_F2));
         connect(renameAct, &QAction::triggered, [this, item]() {
