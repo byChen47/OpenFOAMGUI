@@ -15,6 +15,13 @@
 #include <QFileDialog>
 #include <functional>
 
+// ── Helper: create an editable tree item ──
+static QTreeWidgetItem *newEditableItem(QTreeWidgetItem *parent = nullptr) {
+    auto *item = new QTreeWidgetItem(parent);
+    item->setFlags(item->flags() | Qt::ItemIsEditable);
+    return item;
+}
+
 CaseBrowser::CaseBrowser(QWidget *parent)
     : QWidget(parent)
 {
@@ -105,7 +112,7 @@ void CaseBrowser::openCase(const QString &casePath)
     m_cases.append(casePath);
 
     QFileInfo fi(casePath);
-    auto *caseRoot = new QTreeWidgetItem(m_tree);
+    auto *caseRoot = newEditableItem(m_tree);
     caseRoot->setText(0, fi.fileName());
     caseRoot->setIcon(0, style()->standardIcon(QStyle::SP_DirOpenIcon));
     caseRoot->setData(0, Qt::UserRole, casePath);
@@ -281,7 +288,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
 
     // Time dirs — lazy: only add placeholder, load on expand
     for (const auto &td : timeDirs) {
-        auto *tdItem = new QTreeWidgetItem(caseRoot);
+        auto *tdItem = newEditableItem(caseRoot);
         tdItem->setText(0, td);
         tdItem->setIcon(0, style()->standardIcon(QStyle::SP_DirOpenIcon));
         QString tdPath = caseDir.filePath(td);
@@ -292,7 +299,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
 
     // constant/
     if (!hasConstant.isEmpty()) {
-        auto *ci = new QTreeWidgetItem(caseRoot);
+        auto *ci = newEditableItem(caseRoot);
         ci->setText(0, "constant");
         ci->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
         ci->setData(0, Qt::UserRole, caseDir.filePath("constant"));
@@ -302,7 +309,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
             QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDir::DirsFirst | QDir::Name);
         for (const auto &cf : cFiles) {
             if (cf.isDir()) {
-                auto *sub = new QTreeWidgetItem(ci);
+                auto *sub = newEditableItem(ci);
                 sub->setText(0, cf.fileName());
                 sub->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
                 sub->setData(0, Qt::UserRole, cf.absoluteFilePath());
@@ -316,7 +323,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
 
     // system/ — load eagerly (usually few files)
     if (!hasSystem.isEmpty()) {
-        auto *si = new QTreeWidgetItem(caseRoot);
+        auto *si = newEditableItem(caseRoot);
         si->setText(0, "system");
         si->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
         si->setData(0, Qt::UserRole, caseDir.filePath("system"));
@@ -339,7 +346,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
         }
 
         if (isSubCase) {
-            auto *subItem = new QTreeWidgetItem(caseRoot);
+            auto *subItem = newEditableItem(caseRoot);
             subItem->setText(0, sd);
             subItem->setIcon(0, style()->standardIcon(QStyle::SP_DirOpenIcon));
             subItem->setData(0, Qt::UserRole, sdDir.absolutePath());
@@ -349,7 +356,7 @@ void CaseBrowser::populateCaseUnder(QTreeWidgetItem *caseRoot,
             subItem->setFont(0, f);
             addPlaceholder(subItem);
         } else {
-            auto *odi = new QTreeWidgetItem(caseRoot);
+            auto *odi = newEditableItem(caseRoot);
             odi->setText(0, sd);
             odi->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
             odi->setData(0, Qt::UserRole, caseDir.filePath(sd));
@@ -391,7 +398,7 @@ void CaseBrowser::onItemExpanded(QTreeWidgetItem *item)
             QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDir::DirsFirst | QDir::Name);
         for (const auto &sff : sf) {
             if (sff.isDir()) {
-                auto *dItem = new QTreeWidgetItem(item);
+                auto *dItem = newEditableItem(item);
                 dItem->setText(0, sff.fileName());
                 dItem->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
                 dItem->setData(0, Qt::UserRole, sff.absoluteFilePath());
@@ -410,6 +417,7 @@ QTreeWidgetItem* CaseBrowser::createFileItem(const QFileInfo &fi,
                                               QTreeWidgetItem *parent)
 {
     auto *item = new QTreeWidgetItem(parent ? parent : static_cast<QTreeWidgetItem*>(nullptr));
+    item->setFlags(item->flags() | Qt::ItemIsEditable);
     if (!parent)
         m_tree->addTopLevelItem(item);
 
@@ -494,7 +502,7 @@ void CaseBrowser::onCustomContextMenu(const QPoint &pos)
             if (ok && !name.isEmpty()) {
                 QString fp = QDir(path).filePath(name);
                 QDir(path).mkdir(name);
-                auto *fi = new QTreeWidgetItem(item);
+                auto *fi = newEditableItem(item);
                 fi->setText(0, name);
                 fi->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
                 fi->setData(0, Qt::UserRole, fp);
@@ -590,7 +598,7 @@ void CaseBrowser::newFolder()
         QTreeWidgetItem *parent = m_tree->currentItem();
         if (parent && parent->data(0, Qt::UserRole + 1).toString() == "file")
             parent = parent->parent();
-        auto *item = new QTreeWidgetItem(parent);
+        auto *item = newEditableItem(parent);
         item->setText(0, name);
         item->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
         item->setData(0, Qt::UserRole, folderPath);
