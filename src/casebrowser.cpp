@@ -41,7 +41,7 @@ CaseBrowser::CaseBrowser(QWidget *parent)
     m_tree->setIndentation(16);
     m_tree->setIconSize(QSize(16, 16));
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_tree->setEditTriggers(QAbstractItemView::EditKeyPressed);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setStyleSheet(
         "QTreeWidget { font-size: 13px; }"
@@ -57,6 +57,26 @@ CaseBrowser::CaseBrowser(QWidget *parent)
             this, &CaseBrowser::onFilterTextChanged);
     connect(m_tree, &QTreeWidget::customContextMenuRequested,
             this, &CaseBrowser::onCustomContextMenu);
+    connect(m_tree, &QTreeWidget::itemChanged,
+            this, [this](QTreeWidgetItem *item, int) {
+        // Handle rename: old name vs new name
+        QString newName = item->text(0);
+        QString oldPath = item->data(0, Qt::UserRole).toString();
+        if (newName.isEmpty() || oldPath.isEmpty()) return;
+        QFileInfo fi(oldPath);
+        QString newPath = fi.absolutePath() + "/" + newName;
+        if (oldPath == newPath) return;
+        if (QFile::rename(oldPath, newPath)) {
+            item->setData(0, Qt::UserRole, newPath);
+            // Update tooltip
+            QString desc = OFParser::fileDescription(newName);
+            item->setToolTip(0, desc.isEmpty() ? newPath : desc);
+            emit filesystemChanged();
+        } else {
+            // Restore old name on failure
+            item->setText(0, fi.fileName());
+        }
+    });
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -481,6 +501,15 @@ void CaseBrowser::onCustomContextMenu(const QPoint &pos)
             }
         });
         menu.addSeparator();
+    }
+
+    // Rename — for files and subdirs
+    if (type == "file" || type == "subdir") {
+        QAction *renameAct = menu.addAction("Rename");
+        renameAct->setShortcut(QKeySequence(Qt::Key_F2));
+        connect(renameAct, &QAction::triggered, [this, item]() {
+            m_tree->editItem(item, 0);
+        });
     }
 
     // Delete — for files and all non-case-root dirs
