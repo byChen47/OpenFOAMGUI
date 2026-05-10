@@ -537,15 +537,17 @@ void DictPanel::initControlDictData()
         "writeControl    adjustable;\nwriteInterval   0.05;\npurgeWrite      0;\nwriteFormat     ascii;\nwritePrecision  6;\nwriteCompression off;\n"
     });
     m_controlDictSections.last().params = {
-        {"writeControl", "keyword", "adjustable", "Write trigger: timeStep / runTime / cpuTime / adjustable / clockTime."},
-        {"writeInterval", "scalar", "0.05", "Write interval in units of writeControl."},
-        {"purgeWrite", "label", "0", "Keep only N most recent time dirs. 0 = keep all."},
-        {"writeFormat", "keyword", "ascii", "Format: ascii / binary."},
-        {"writePrecision", "label", "6", "Number of significant digits for ascii output."},
-        {"writeCompression", "keyword", "off", "Compress output: on / off / gzip."},
-        {"timeFormat", "keyword", "general", "Time directory naming: fixed / scientific / general."},
-        {"timePrecision", "label", "6", "Precision for time directory naming."},
-        {"runTimeModifiable", "keyword", "yes", "Allow runtime modification of controlDict."},
+        {"writeControl", "keyword", "adjustable", "writeControl: timeStep / runTime / cpuTime / adjustable / clockTime / adjustableRunTime"},
+
+        {"writeInterval", "scalar", "0.1", "writeInterval (scalar). Units depend on writeControl (e.g., 0.1s for adjustable)"},
+        {"purgeWrite", "label", "0", "purgeWrite (int). 0=keep all, N=keep N most recent time directories"},
+        {"writeFormat", "keyword", "ascii", "writeFormat: ascii / binary"},
+        {"writePrecision", "label", "6", "writePrecision (int). Significant digits for ascii output"},
+        {"writeCompression", "keyword", "off", "writeCompression: off / on / gzip"},
+        {"timeFormat", "keyword", "general", "timeFormat for directory naming: fixed / scientific / general"},
+        {"timePrecision", "label", "6", "timePrecision (int). Digits in time directory names"},
+        {"runTimeModifiable", "keyword", "yes", "Allow runtime modification of controlDict: yes / no"},
+        {"graphFormat", "keyword", "raw", "graphFormat: raw / gnuplot / xmgr / jplot"},
     };
 
     m_controlDictSections.append({
@@ -789,15 +791,18 @@ void DictPanel::initSampleDictData() {
     m_sampleDictSections.clear();
     m_sampleDictSections.append({"Sets", "Lines for sampling.", {},
         "sets\n(\n    centreLine\n    {\n        type    uniform;\n"
-        "        axis    x;\n        start   (0 0 0.05);\n        end     (1 0 0.05);\n        nPoints 100;\n    }\n);\n"});
+        "        axis    x;\n        start   (0 0 0.05);\n        end     (1 0 0.05);\n        nPoints 100;\n    }\n);\n\n"
+        "fields          (p U k epsilon);\n"});
     m_sampleDictSections.last().params = {
+        {"fields", "word list", "(p U)", "Fields to sample"},
         {"type", "word", "uniform", "midPoint / midPointAndFace / uniform / face / cloud"},
-        {"axis", "word", "x", "Axis for line sampling"},
+        {"axis", "word", "x", "Axis for line sampling: x / y / z / xyz / distance"},
         {"start", "vector", "(0 0 0)", "Start point"},
         {"end", "vector", "(1 0 0)", "End point"},
         {"nPoints", "label", "100", "Number of sample points"},
         {"interpolationScheme", "word", "cell", "cell / cellPoint / cellPointFace"},
         {"setFormat", "word", "raw", "raw / vtk / csv / ensight / json"},
+        {"surfaceFormat", "word", "raw", "Surface output format: raw / vtk / stl / obj"},
     };
     m_sampleDictSections.append({"Surfaces", "Surfaces for sampling.", {},
         "surfaces\n(\n    yNormal\n    {\n        type        plane;\n"
