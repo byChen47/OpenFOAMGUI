@@ -206,6 +206,51 @@ static QStringList ofKeywords() { return {
     "IOdictionary","IOobject","IOField","autoPtr","tmp","PtrList",
     "Switch","word","scalar","vector","tensor","symmTensor","sphericalTensor",
     "label","HashTable","dictionary","Foam","endl","nl","tab",
+    // ── OpenFOAM v2012–v2512 additions ──
+    // Solvers
+    "interFoam","icoFoam","simpleFoam","pisoFoam","pimpleFoam",
+    "chtMultiRegionFoam","reactingFoam","sprayFoam","coalChemistryFoam",
+    "overInterDyMFoam","overPimpleDyMFoam","nonNewtonianIcoFoam",
+    "acousticFoam","shallowWaterFoam","particleFoam",
+    // fvModels (v2112+)
+    "fvModels","fvConstraints","fvOptions",
+    // Function objects
+    "functionObjects","fieldAverage","forceCoeffs","forces","probes",
+    "sampledSet","streamlines","cuttingPlane","isoSurface",
+    "wallShearStress","yPlus","Q","vorticity","Lambda2","fieldMinMax",
+    "residuals","CourantNo","Pe","turbulenceFields","scalarTransport",
+    "age","comfort","heatTransferCoeff","particles",
+    // Overset / immersed boundary
+    "overset","cellCellStencil","inverseDistance","cellVolumeWeight",
+    // Multiphase additions
+    "interfaceProperties","surfaceTensionForce","phaseSystem",
+    "multiphaseEulerFoam","twoPhaseSystem","compressibleInterFoam",
+    "cavitatingFoam","driftFluxFoam","VoF","EulerEuler",
+    // Thermophysical / species
+    "thermophysicalProperties","thermoType","heRhoThermo","hePsiThermo",
+    "sensibleEnthalpy","sensibleInternalEnergy","speciesTable",
+    "specie","mixture","reactingMixture","chemistryReader",
+    "combustionModel","radiationModel","fvDOM","viewFactor",
+    // Dynamic mesh
+    "dynamicFvMesh","dynamicMotionSolverFvMesh","displacementLaplacian",
+    "solidBodyMotionFunction","rotatingMotion","linearMotion",
+    "oscillatingRotatingMotion","tabulated6DoFMotion","multiSolidBodyMotion",
+    // Rigid body
+    "rigidBodyDynamics","sixDoFRigidBodyMotion","restraints","constraints",
+    "Coulomb","linearSpring","sphericalAngularSpring",
+    // New BCs (v2012+)
+    "externalCoupledTemperature","turbulentTemperatureCoupledBaffleMixed",
+    "humidityTemperatureCoupledMixed","externalWallHeatFluxTemperature",
+    "contactAngleForce","characteristicPressureInletOutletVelocity",
+    "buoyancyPressure","nonNewtonianViscosityWallFunction",
+    "greyDiffusiveRadiationViewFactor","oversetPressure",
+    "multiphaseStabilizedTurbulence","acousticWaveTransmissivePressure",
+    // DES / DDES / IDDES models
+    "SpalartAllmarasDES","SpalartAllmarasDDES","SpalartAllmarasIDDES",
+    "kOmegaSSTDES","kOmegaSSTDDES","kOmegaSSTIDDES",
+    "kOmegaSSTDensityDES","kOmegaSSTDensityDDES",
+    // Transition models
+    "gammaReTheta","kOmegaSSTLM","kOmegaSSTSAS",
 };}
 
 // ── Constructor ─────────────────────────────────────────────────

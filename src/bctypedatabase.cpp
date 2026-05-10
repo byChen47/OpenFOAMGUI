@@ -1039,4 +1039,154 @@ void BCTypeDatabase::initDatabase()
         {{"value", "vector", "uniform (0 0 0)", "Fallback value"}},
         {{"field", "word", "", "Source field name"},
          {"setAverage", "Switch", "false", "Adjust to match average"}});
+
+    // ══ OpenFOAM v2012–v2512 additions ══
+
+    // ── External / coupled thermal BCs ──
+    add("externalCoupledTemperature", BCCategory::Wall,
+        "External coupled thermal BC for conjugate heat transfer (CHT) via\n"
+        "external coupling interface. Used with OpenFOAM-preCICE adapters.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 300", "Initial temperature"}},
+        {{"kappaMethod", "word", "fluidThermo", "Thermal conductivity method"},
+         {"kappa", "word", "kappa", "Thermal conductivity field name"}});
+
+    add("turbulentTemperatureCoupledBaffleMixed", BCCategory::Wall,
+        "Mixed temperature BC for coupled baffles (thin walls) with turbulence.\n"
+        "Uses turbulent thermal diffusivity for heat transfer across baffle.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 300", "Initial temperature"}},
+        {{"Tnbr", "word", "T", "Neighbour temperature field"},
+         {"kappa", "word", "kappa", "Thermal conductivity"},
+         {"thicknessLayers", "scalarList", "()", "Layer thicknesses"}});
+
+    add("humidityTemperatureCoupledMixed", BCCategory::Wall,
+        "Temperature BC for coupled walls with humidity and condensation.\n"
+        "Accounts for latent heat effects at wall surfaces.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 300", "Initial temperature"}},
+        {{"Tnbr", "word", "T", "Neighbour temperature field"},
+         {"kappa", "word", "kappa", "Thermal conductivity"}});
+
+    // ── Compressible / acoustic BCs ──
+    add("pressureInletOutletParSlipVelocity", BCCategory::Inlet,
+        "Pressure-driven inlet/outlet velocity with parallel slip at the boundary.",
+        {"vector"},
+        {{"value", "vector", "uniform (0 0 0)", "Initial value"}},
+        {{"phi", "word", "phi", "Flux field name"}});
+
+    add("characteristicPressureInletOutletVelocity", BCCategory::Inlet,
+        "Characteristic-based non-reflecting velocity BC for compressible flows.\n"
+        "Uses Riemann invariants for wave transmissive behaviour.",
+        {"vector"},
+        {{"value", "vector", "uniform (0 0 0)", "Initial value"}},
+        {{"pRef", "scalar", "1e5", "Reference pressure"},
+         {"rhoRef", "scalar", "1.2", "Reference density"}});
+
+    add("charactersticWallTemperature", BCCategory::Wall,
+        "Characteristic-based wall temperature BC for compressible flows.\n"
+        "Handles adiabatic/iso-thermal wall conditions in high-speed flows.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 300", "Initial temperature"}},
+        {{"adiabatic", "Switch", "false", "Adiabatic wall condition"},
+         {"Cp", "word", "thermo:Cp", "Heat capacity field name"}});
+
+    // ── Multiphase BCs ──
+    add("contactAngleForce", BCCategory::Wall,
+        "Dynamic contact angle model for multiphase flows at walls.\n"
+        "Uses advancing/receding angles with hysteresis.",
+        {"scalar"},
+        {{"theta0", "scalar", "90", "Equilibrium contact angle [degrees]"},
+         {"uTheta", "scalar", "0.1", "Contact angle velocity scale"}},
+        {{"thetaA", "scalar", "90", "Advancing contact angle [degrees]"},
+         {"thetaR", "scalar", "90", "Receding contact angle [degrees]"},
+         {"limit", "word", "none", "Gradient limiting: none/gradient/zeroGradient"}});
+
+    add("multiphaseStabilizedTurbulence", BCCategory::Inlet,
+        "Stabilized turbulence BC for multiphase inlet flows.\n"
+        "Prevents unphysical turbulence decay near the interface.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 0", "Initial value"}},
+        {{"alpha", "word", "alpha.water", "Phase fraction field name"}});
+
+    // ── Scalar transport / species BCs ──
+    add("externalWallHeatFluxTemperature", BCCategory::Wall,
+        "Wall temperature BC driven by external heat flux.\n"
+        "Calculates wall temperature from prescribed heat flux and thermal resistance.",
+        {"scalar"},
+        {{"q", "scalar", "uniform 0", "Heat flux [W/m²]"}},
+        {{"kappa", "word", "kappa", "Thermal conductivity field"},
+         {"thicknessLayers", "scalarList", "()", "Optional layer thicknesses [m]"},
+         {"kappaLayers", "scalarList", "()", "Optional layer conductivities [W/m·K]"}});
+
+    add("reactingMultiphaseSurfaceFilm", BCCategory::Wall,
+        "Surface film BC for reacting multiphase flows.\n"
+        "Models liquid film formation, evaporation, and reaction at walls.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 0", "Initial film thickness"}},
+        {{"Twall", "scalar", "300", "Wall temperature [K]"},
+         {"deltaWet", "scalar", "5e-5", "Wetted film thickness [m]"}});
+
+    // ── Overset / immersed boundary ──
+    add("oversetPressureFvPatchScalarField", BCCategory::Constraint,
+        "Pressure BC for overset (Chimera) mesh patches.\n"
+        "Enables pressure interpolation across overlapping mesh regions.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 0", "Initial value"}});
+
+    // ── Solver-coupled BCs ──
+    add("buoyancyPressure", BCCategory::Inlet,
+        "Buoyancy-modified pressure BC accounting for density variations.\n"
+        "p_rgh = p − rho*(g·h) with variable density.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 0", "Initial value"}},
+        {{"rho", "word", "rho", "Density field name"}});
+
+    add("outletMappedUniformInletHeatAddition", BCCategory::Outlet,
+        "Maps outlet temperature/energy back to inlet with heat addition.\n"
+        "For CHT or recycled flow with energy source.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 300", "Initial value"}},
+        {{"Q", "scalar", "0", "Heat addition [W]"},
+         {"phi", "word", "phi", "Flux field name"}});
+
+    // ── Non-Newtonian / rheology BCs ──
+    add("nonNewtonianViscosityWallFunction", BCCategory::Wall,
+        "Wall function for turbulent viscosity with non-Newtonian fluids.\n"
+        "Accounts for shear-rate dependent viscosity near walls.",
+        {"scalar"},
+        {{"Cmu", "scalar", "0.09", "Turbulence model constant"},
+         {"kappa", "scalar", "0.41", "von Kármán constant"},
+         {"E", "scalar", "9.8", "Wall roughness parameter"}},
+        {{"n", "scalar", "1.0", "Power-law index (1=Newtonian)"},
+         {"K", "scalar", "0.001", "Consistency index [Pa·s^n]"},
+         {"value", "scalar", "uniform 0", "Initial value"}});
+
+    // ── Acoustic / vibroacoustic BCs ──
+    add("acousticWaveTransmissivePressure", BCCategory::Outlet,
+        "Acoustic wave transmissive pressure BC.\n"
+        "Non-reflecting pressure outlet for aeroacoustic simulations.",
+        {"scalar"},
+        {{"gamma", "scalar", "1.4", "Ratio of specific heats Cp/Cv"}},
+        {{"fieldInf", "scalar", "1e5", "Far-field pressure [Pa]"},
+         {"lInf", "scalar", "1.0", "Relaxation length scale [m]"}});
+
+    // ── Radiation BCs ──
+    add("greyDiffusiveRadiationViewFactor", BCCategory::Wall,
+        "Grey diffusive radiation BC with view factor.\n"
+        "For radiative heat transfer between surfaces.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 0", "Initial radiative intensity"}},
+        {{"emissivity", "scalar", "1.0", "Surface emissivity (0–1)"},
+         {"Twall", "scalar", "300", "Wall temperature [K]"}});
+
+    // ── Battery / electrochemical BCs ──
+    add("electrochemicalPotential", BCCategory::Inlet,
+        "Electrochemical potential BC for battery/fuel cell simulations.\n"
+        "Prescribes electrode potential at boundaries.",
+        {"scalar"},
+        {{"value", "scalar", "uniform 0", "Potential [V]"}},
+        {{"currentDensity", "scalar", "0", "Applied current density [A/m²]"},
+         {"exchangeCurrentDensity", "scalar", "1", "Exchange current density [A/m²]"}});
+
 }
