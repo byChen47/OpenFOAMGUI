@@ -41,7 +41,9 @@ CaseBrowser::CaseBrowser(QWidget *parent)
     m_tree->setIndentation(16);
     m_tree->setIconSize(QSize(16, 16));
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_tree->setEditTriggers(QAbstractItemView::EditKeyPressed);
+    m_tree->setEditTriggers(QAbstractItemView::EditKeyPressed
+                            | QAbstractItemView::SelectedClicked);
+    m_tree->setFocusPolicy(Qt::StrongFocus);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setStyleSheet(
         "QTreeWidget { font-size: 13px; }"
