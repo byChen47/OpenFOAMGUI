@@ -28,3 +28,8 @@ packaging/
 
 # Node
 node_modules/
+tests/Makefile.Tests*
+tests/results.txt
+tests/stderr.txt
+tests/test_output.txt
+tests/target_wrapper.sh
