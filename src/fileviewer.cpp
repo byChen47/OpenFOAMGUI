@@ -26,6 +26,7 @@ namespace FileViewer {
 
 QString findGhostscript()
 {
+#ifdef Q_OS_WIN
     // 0. Bundled with the app
     QString localGs = QCoreApplication::applicationDirPath()
                       + "/ghostscript/bin/gswin64c.exe";
@@ -33,7 +34,7 @@ QString findGhostscript()
 
     // 1. PATH and well-known install locations
     QStringList paths = {
-        "gswin64c", "gswin32c", "gs",
+        "gswin64c", "gswin32c",
         "C:/Program Files/gs/gs10.04.0/bin/gswin64c.exe",
         "C:/Program Files/gs/gs10.03.1/bin/gswin64c.exe",
         "C:/Program Files/gs/gs10.03.0/bin/gswin64c.exe",
@@ -50,29 +51,37 @@ QString findGhostscript()
     }
 
     // 2. Recursive search under LaTeX install dirs
-    QStringList searchRoots;
     for (const auto &drive : {"C:/", "D:/", "E:/"}) {
         QDir root(drive);
         auto dirs = root.entryList({"*tex*", "*latex*", "*LaTex*", "*TeX*", "*texlive*"},
                                    QDir::Dirs | QDir::NoDotAndDotDot);
-        for (const auto &d : dirs)
-            searchRoots.append(drive + d);
-    }
-    for (const auto &root : searchRoots) {
-        QDirIterator it(root, {"gswin64c.exe"}, QDir::Files,
-                        QDirIterator::Subdirectories);
-        while (it.hasNext()) {
-            it.next();
-            QString candidate = it.filePath();
-            if (candidate.contains("tlgs") || candidate.contains("ghostscript"))
-                return candidate;
+        for (const auto &d : dirs) {
+            QDirIterator it(drive + d, {"gswin64c.exe"}, QDir::Files,
+                            QDirIterator::Subdirectories);
+            while (it.hasNext()) {
+                it.next();
+                QString c = it.filePath();
+                if (c.contains("tlgs") || c.contains("ghostscript"))
+                    return c;
+            }
         }
     }
 
-    // 3. PATH fallback
     QString f = QStandardPaths::findExecutable("gswin64c");
     if (!f.isEmpty()) return f;
-    return QStandardPaths::findExecutable("gs");
+#endif
+
+    // ── Cross-platform: use `gs` from PATH ──
+    QString gs = QStandardPaths::findExecutable("gs");
+    if (!gs.isEmpty()) return gs;
+
+#ifdef Q_OS_MACOS
+    // Homebrew common locations
+    for (const auto &p : {"/usr/local/bin/gs", "/opt/homebrew/bin/gs"})
+        if (QFileInfo::exists(p)) return p;
+#endif
+
+    return QString();
 }
 
 // ────────────────────────────────────────────────────────────────

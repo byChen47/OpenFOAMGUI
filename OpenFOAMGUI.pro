@@ -1,13 +1,9 @@
-QT       += core gui widgets svgwidgets
+QT       += core gui widgets svg svgwidgets
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+CONFIG += c++17 console
 
-CONFIG += c++17
-CONFIG += console
-
-mingw {
-    QMAKE_LFLAGS_CONSOLE = -Wl,-subsystem,windows -mthreads
-}
+# Hide console window: build normally, then flip PE subsystem
+QMAKE_POST_LINK = $$quote(objcopy --subsystem=windows:6.0 $(DESTDIR_TARGET) $(DESTDIR_TARGET)_tmp && mv -f $(DESTDIR_TARGET)_tmp $(DESTDIR_TARGET))
 
 TARGET = OpenFOAMGUI
 TEMPLATE = app
@@ -53,3 +49,13 @@ RESOURCES += \
     resources.qrc
 
 RC_ICONS = src/bychen.ico
+
+# ── Test target ──
+check.target = check
+check.commands = \
+    cd tests && \
+    $(QMAKE) tests.pro -o Makefile.Tests && \
+    $(MAKE) -f Makefile.Tests && \
+    release/OpenFOAMGUI_tests.exe
+check.depends = all
+QMAKE_EXTRA_TARGETS += check

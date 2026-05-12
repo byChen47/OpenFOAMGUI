@@ -12,6 +12,8 @@ struct OFMeshData {
     QVector<QVector3D>     faceColors;   // Color per face (based on patch)
     QMap<QString, QVector<uint>> patches; // Patch name → face indices
     double bounds[6];                     // xmin, xmax, ymin, ymax, zmin, zmax
+    QVector<double>        cellValues;   // Field values per cell (from readField)
+    QString                fieldName;    // Name of the loaded field
 };
 
 class OFMeshReader

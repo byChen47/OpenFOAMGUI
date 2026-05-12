@@ -933,14 +933,6 @@ void BCTypeDatabase::initDatabase()
         {{"phi", "word", "phi", "Flux field name"},
          {"value", "vector", "uniform (0 0 0)", "Initial value"}});
 
-    add("pressureInletOutletParSlipVelocity", BCCategory::Inlet,
-        "Pressure inlet/outlet velocity with parallel slip condition.\n"
-        "Similar to pressureInletOutletVelocity but with slip treatment.",
-        {"vector"},
-        {},
-        {{"phi", "word", "phi", "Flux field name"},
-         {"value", "vector", "uniform (0 0 0)", "Initial value"}});
-
     add("pressureInletUniformVelocity", BCCategory::Inlet,
         "Uniform velocity inlet where pressure is specified.\n"
         "Uniform across the patch; magnitude from flux.",

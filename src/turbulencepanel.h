@@ -63,6 +63,7 @@ private:
     QString      m_currentContent;
     QString      m_currentSimType; // RAS, LES, laminar
     QString      m_currentModelName;
+    QMap<QString, QString> m_parsedCoeffs; // key → value from existing file
     TurbModelInfo m_selectedModel;
     CodeEditor  *m_editor = nullptr;
 };

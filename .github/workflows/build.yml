@@ -1,0 +1,62 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  windows:
+    name: Windows (MinGW64, Qt 6.10)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw'
+          modules: 'qtsvg'
+
+      - name: Build
+        run: |
+          qmake OpenFOAMGUI.pro
+          mingw32-make -f Makefile.Release -j$(nproc)
+
+      - name: Build & Run Tests
+        run: |
+          cd tests
+          qmake tests.pro -o Makefile.Tests
+          mingw32-make -f Makefile.Tests
+          release/OpenFOAMGUI_tests.exe
+
+  linux:
+    name: Linux (GCC, Qt 6.10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.2'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
+          modules: 'qtsvg'
+
+      - name: Build
+        run: |
+          qmake OpenFOAMGUI.pro
+          make -f Makefile.Release -j$(nproc)
+
+      - name: Build & Run Tests
+        run: |
+          cd tests
+          qmake tests.pro -o Makefile.Tests
+          make -f Makefile.Tests
+          ./OpenFOAMGUI_tests

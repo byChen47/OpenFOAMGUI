@@ -13,6 +13,9 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QFileDialog>
+#include <QTimer>
+#include <QLocale>
+#include <algorithm>
 #include <functional>
 
 // ── Helper: create an editable tree item ──
@@ -67,6 +70,33 @@ CaseBrowser::CaseBrowser(QWidget *parent)
             this, &CaseBrowser::onItemDoubleClicked);
     connect(m_tree, &QTreeWidget::itemExpanded,
             this, &CaseBrowser::onItemExpanded);
+    m_watcher = new QFileSystemWatcher(this);
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged,
+            this, [this](const QString &path) {
+        // Only refresh if new subdirectories appeared (e.g. solver time dirs)
+        QDir dir(path);
+        QStringList currentDirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+        QStringList &known = m_knownDirs[path];
+        bool hasNewDir = false;
+        for (const auto &d : currentDirs) {
+            if (!known.contains(d)) { hasNewDir = true; break; }
+        }
+        known = currentDirs;
+        if (!hasNewDir) return; // file-only change — skip regeneration
+
+        QTimer::singleShot(500, this, [this, path]() {
+            for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
+                auto *root = m_tree->topLevelItem(i);
+                if (root->data(0, Qt::UserRole).toString() == path) {
+                    bool wasExpanded = root->isExpanded();
+                    populateCaseUnder(root, path);
+                    if (wasExpanded) root->setExpanded(true);
+                    break;
+                }
+            }
+        });
+    });
+
     connect(m_filterEdit, &QLineEdit::textChanged,
             this, &CaseBrowser::onFilterTextChanged);
     connect(m_tree, &QTreeWidget::customContextMenuRequested,
@@ -140,6 +170,8 @@ void CaseBrowser::openCase(const QString &casePath)
     m_caseLabel->setToolTip(m_cases.join("\n"));
 
     m_tree->setCurrentItem(caseRoot);
+    m_watcher->addPath(casePath);
+    m_knownDirs[casePath] = QDir(casePath).entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
     emit caseOpened(casePath);
 }
 
@@ -202,6 +234,8 @@ void CaseBrowser::closeCase(const QString &casePath)
     }
 
     m_cases.removeAll(caserootPath);
+    m_watcher->removePath(caserootPath);
+    m_knownDirs.remove(caserootPath);
 
     // Update label
     if (m_cases.isEmpty()) {
@@ -235,11 +269,15 @@ void CaseBrowser::refresh()
 
 QString CaseBrowser::caseForFile(const QString &filePath) const
 {
-    for (const auto &c : m_cases) {
-        QDir caseDir(c);
-        QString canonicalFile = QDir(filePath).canonicalPath();
-        QString canonicalCase = caseDir.canonicalPath();
-        if (canonicalFile.startsWith(canonicalCase))
+    QString canonicalFile = QDir(filePath).canonicalPath();
+    // Sort by path length descending so nested cases (damBreak/fine)
+    // are checked before their parent (damBreak)
+    QStringList sorted = m_cases;
+    std::sort(sorted.begin(), sorted.end(),
+              [](const QString &a, const QString &b) { return a.length() > b.length(); });
+    for (const auto &c : sorted) {
+        QString canonicalCase = QDir(c).canonicalPath();
+        if (canonicalFile.startsWith(canonicalCase + "/") || canonicalFile == canonicalCase)
             return c;
     }
     return QString();
@@ -254,7 +292,7 @@ bool CaseBrowser::isTimeDirectory(const QString &name)
     if (name == "0" || name.startsWith("0."))
         return true;
     bool ok = false;
-    name.toDouble(&ok);
+    QLocale::c().toDouble(name, &ok);
     return ok;
 }
 

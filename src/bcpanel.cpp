@@ -514,11 +514,22 @@ QString BCPanel::collectParamValues() const
 void BCPanel::parsePatches(const QString &content)
 {
     m_patchTree->clear();
-    QRegularExpression bfRe(R"(boundaryField\s*\{(.*)\})", QRegularExpression::DotMatchesEverythingOption);
-    auto bf = bfRe.match(content);
-    if (!bf.hasMatch()) return;
+    // Depth-based: find boundaryField { ... } matching braces
+    int bfIdx = content.indexOf("boundaryField");
+    if (bfIdx < 0) return;
+    int braceIdx = content.indexOf('{', bfIdx);
+    if (braceIdx < 0) return;
+    int depth = 1, pos = braceIdx + 1;
+    while (pos < content.size() && depth > 0) {
+        if (content[pos] == '{') depth++;
+        else if (content[pos] == '}') depth--;
+        pos++;
+    }
+    if (depth != 0) return;
+    QString bfBody = content.mid(braceIdx + 1, pos - braceIdx - 2);
+
     QRegularExpression pr(R"((\w+)\s*\{(.*?)\n\s*\})", QRegularExpression::DotMatchesEverythingOption);
-    auto it = pr.globalMatch(bf.captured(1));
+    auto it = pr.globalMatch(bfBody);
     while (it.hasNext()) {
         auto pm = it.next();
         QString pn = pm.captured(1);

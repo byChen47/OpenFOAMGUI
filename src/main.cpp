@@ -5,9 +5,15 @@
 
 int main(int argc, char *argv[])
 {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+#endif
+    QApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+
     QApplication app(argc, argv);
     app.setApplicationName("OpenFOAM GUI");
-    app.setApplicationVersion("1.0.0");
+    app.setApplicationVersion("2.0.3");
     app.setOrganizationName("OpenFOAMGUI");
     app.setWindowIcon(QIcon(":/bychen.ico"));
 

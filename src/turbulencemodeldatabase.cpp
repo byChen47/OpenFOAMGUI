@@ -372,6 +372,87 @@ void TurbulenceModelDatabase::initDatabase()
          {"Cmu", "scalar", "0.09", "Used for turbulent diffusion"}}
     });
 
+    // ── kOmega2006 (Wilcox 2006) ──
+    m_models.append({
+        "kOmega2006", "RASModels::kOmega2006", TurbModelCategory::RAS,
+        "Wilcox (2006) k-omega model. Improved low-Re behaviour, eliminates the "
+        "freestream sensitivity of the standard k-omega model. Uses a cross-diffusion "
+        "term and revised coefficients for better predictive accuracy.",
+        "k-omega 2006 transport equations:\n"
+        "D(rho*k)/Dt = P_k - beta**rho*k*omega + div[(mu+sigma_k*mu_t)*grad(k)]\n"
+        "D(rho*omega)/Dt = alpha*P_k*omega/k - beta*rho*omega^2\n"
+        "                  + sigma_d*rho/omega*grad(k)·grad(omega)\n"
+        "                  + div[(mu+sigma_omega*mu_t)*grad(omega)]",
+        "Wilcox, D.C. (2006). Turbulence Modeling for CFD, 3rd ed.",
+        {{"alphaK1", "scalar", "0.85", "k diffusion (low Re)"},
+         {"alphaK2", "scalar", "1.0", "k diffusion (high Re)"},
+         {"alphaOmega1", "scalar", "0.5", "omega diffusion (low Re)"},
+         {"alphaOmega2", "scalar", "0.856", "omega diffusion (high Re)"},
+         {"beta1", "scalar", "0.075", "omega destruction (low Re)"},
+         {"beta2", "scalar", "0.0828", "omega destruction (high Re)"},
+         {"betaStar", "scalar", "0.09", "Cmu equivalent"},
+         {"gamma1", "scalar", "0.5532", "Production coefficient (low Re)"},
+         {"gamma2", "scalar", "0.4404", "Production coefficient (high Re)"},
+         {"sigmaDO", "scalar", "0.125", "Cross-diffusion limiter"},
+         {"Cmu", "scalar", "0.09", "Turbulent viscosity coefficient"}}
+    });
+
+    // ── v2f (Durbin's v²-f) ──
+    m_models.append({
+        "v2f", "RASModels::v2f", TurbModelCategory::RAS,
+        "Durbin's v²-f model. Uses wall-normal stress v² and elliptic relaxation "
+        "function f to model near-wall anisotropy without damping functions. "
+        "Superior for separated flows, impinging jets, and heat transfer.",
+        "v²-f equations (4-equation model):\n"
+        "k:    Dk/Dt = P - epsilon + div[(nu+nut/sigma_k)*grad(k)]\n"
+        "eps:  Deps/Dt = (Ceps1*P - Ceps2*eps)/T + div[(nu+nut/sigma_eps)*grad(eps)]\n"
+        "v2:   Dv2/Dt = k*f - v2*eps/k + div[(nu+nut/sigma_k)*grad(v2)]\n"
+        "f:    L^2*laplacian(f) - f = (C1-1)*(2/3 - v2/k)/T + C2*P/k",
+        "Durbin, P.A. (1991). Near-wall turbulence closure without damping functions.",
+        {{"Cmu", "scalar", "0.22", "Turbulent viscosity"},
+         {"Ceps1", "scalar", "1.4", "1+0.045*sqrt(k/v2)"},
+         {"Ceps2", "scalar", "1.9", "epsilon destruction"},
+         {"C1", "scalar", "1.4", "f-equation source"},
+         {"C2", "scalar", "0.3", "f-equation P/k term"},
+         {"CL", "scalar", "0.23", "Length scale coefficient"},
+         {"Ceta", "scalar", "85.0", "Kolmogorov scale limiter"},
+         {"sigmaK", "scalar", "1.0", "k diffusion Prandtl number"},
+         {"sigmaEps", "scalar", "1.3", "epsilon diffusion Prandtl number"}}
+    });
+
+    // ── SpalartAllmarasDES ──
+    m_models.append({
+        "SpalartAllmarasDES", "LESModels::SpalartAllmarasDES", TurbModelCategory::DES,
+        "Spalart-Allmaras Detached Eddy Simulation. Hybrid RANS-LES: uses SA in "
+        "attached boundary layers and switches to Smagorinsky-like LES in separated "
+        "regions. CDES = 0.65 is the standard calibrated value.",
+        "DES formulation:\n"
+        "d_tilde = min(d_wall, CDES*Delta)\n"
+        "Delta = max(dx, dy, dz) — grid filter width\n"
+        "RANS region: d_wall < CDES*Delta → SA model\n"
+        "LES region:  d_wall > CDES*Delta → SGS model",
+        "Spalart et al. (1997). Comments on the feasibility of LES for wings.",
+        {{"CDES", "scalar", "0.65", "DES constant (SA: 0.65, SST: 0.61)"},
+         {"FSST", "switch", "off", "SST blending (off for SA-DES)"}}
+    });
+
+    // ── kOmegaSSTDES ──
+    m_models.append({
+        "kOmegaSSTDES", "LESModels::kOmegaSSTDES", TurbModelCategory::DES,
+        "k-omega SST Detached Eddy Simulation (DDES variant). Uses k-omega SST "
+        "in RANS regions and switches to LES in separated flow. Includes a shielding "
+        "function to protect attached boundary layers from premature LES switch.",
+        "SST-DES formulation:\n"
+        "eps = beta**k*omega → min(beta**k*omega, CDES*sqrt(k)/Delta)\n"
+        "DDES shield: f_d = 1 - tanh[(C_d1*r_d)^C_d2]\n"
+        "Recommended: CDES = 0.61, FSST = on",
+        "Menter, F.R. et al. (2003). Ten years of industrial experience with SST.",
+        {{"CDES", "scalar", "0.61", "DES constant (SST calibrated)"},
+         {"FSST", "switch", "on", "SST blending function"},
+         {"Cdd1", "scalar", "20.0", "DDES shielding C_d1"},
+         {"Cdd2", "scalar", "3.0", "DDES shielding C_d2"}}
+    });
+
     // ════════════════════════════════════════════════════════════════
     // Laminar / non-Newtonian
     // ════════════════════════════════════════════════════════════════

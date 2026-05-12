@@ -7,6 +7,7 @@
 class LineNumberArea;
 class OFHighlighter;
 class QCompleter;
+class QStringListModel;
 
 class CodeEditor : public QPlainTextEdit
 {
@@ -55,6 +56,7 @@ private:
     QWidget *m_lineNumberArea;
     OFHighlighter *m_highlighter;
     QCompleter *m_completer = nullptr;
+    QStringListModel *m_completionModel = nullptr;
     QString m_filePath;
     FileLanguage m_language = FileLanguage::Unknown;
     bool m_acCpp = true;

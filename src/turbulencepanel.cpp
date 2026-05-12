@@ -279,10 +279,29 @@ void TurbulencePanel::parseCurrentConfig(const QString &content)
     auto sm = simRe.match(content);
     m_currentSimType = sm.hasMatch() ? sm.captured(1).toLower() : "ras";
 
-    // Extract model name from RASModel/LESModel/laminarModel
+    // Extract model name from model/RASModel/LESModel entry
     QRegularExpression modelRe(R"((model|RASModel|LESModel)\s+(\S+)\s*;)");
     auto mm = modelRe.match(content);
     m_currentModelName = mm.hasMatch() ? mm.captured(2) : QString();
+
+    // Parse model coefficients sub-dict (e.g. kEpsilonCoeffs { ... })
+    if (!m_currentModelName.isEmpty()) {
+        QString coeffsKey = m_currentModelName + "Coeffs";
+        QRegularExpression coeffRe(
+            coeffsKey + R"(\s*\{([^}]*)\})",
+            QRegularExpression::DotMatchesEverythingOption);
+        auto cm = coeffRe.match(content);
+        if (cm.hasMatch()) {
+            QString body = cm.captured(1);
+            QRegularExpression kvRe(R"((\w+)\s+([-\d.e+]+)\s*;)");
+            auto it = kvRe.globalMatch(body);
+            m_parsedCoeffs.clear();
+            while (it.hasNext()) {
+                auto m = it.next();
+                m_parsedCoeffs[m.captured(1)] = m.captured(2);
+            }
+        }
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────

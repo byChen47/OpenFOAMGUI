@@ -12,6 +12,8 @@
 #include <QSettings>
 #include <QStackedWidget>
 
+#include "languagedetector.h"
+
 class CaseBrowser;
 class CodeEditor;
 class BCPanel;
@@ -42,6 +44,8 @@ private slots:
     void onTabChanged(int index);
     void onTabContextMenu(const QPoint &pos);
     void onFindText();
+    void onFindNext();
+    void onReplaceText();
     void onNewFile();
     void onNewFolder();
     void onDeleteSelected();
@@ -70,6 +74,10 @@ private:
     void saveSettings();
     void addRecentCase(const QString &path);
     void updateRecentCasesMenu();
+    void addRecentFile(const QString &path);
+    void updateRecentFilesMenu();
+    void routeFileToPanel(const QString &fileName, const QString &content, FileLanguage lang);
+    void applyTheme(bool dark);
 
     bool openFileInTab(const QString &filePath);
     CodeEditor* currentEditor();
@@ -120,6 +128,8 @@ private:
     QAction *m_undoAction;
     QAction *m_redoAction;
     QAction *m_findAction;
+    QAction *m_findNextAction;
+    QAction *m_replaceAction;
     QAction *m_commentAction;
     QAction *m_acCppAction;
     QAction *m_acPythonAction;
@@ -139,13 +149,18 @@ private:
     QAction *m_terminalAction;
     QAction *m_syncBoundariesAction;
     QAction *m_aboutAction;
+    QAction *m_themeAction;
     QAction *m_recentCaseActions[10];
+    QAction *m_recentFileActions[10];
 
     // State
     QStringList m_recentCases;
+    QStringList m_recentFiles;
     QString     m_paraviewPath;
     QString     m_pythonPath;
     QString     m_cppCompilerPath;
+    QString     m_lastSearchText;
+    bool        m_darkTheme = false;
     static const int MaxRecentCases = 10;
 };
 

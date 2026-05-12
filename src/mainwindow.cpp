@@ -16,6 +16,12 @@
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QFileDialog>
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPlainTextEdit>
+#include <QPushButton>
 #include <QRegularExpression>
 #include <QSet>
 #include <QPainter>
@@ -163,6 +169,14 @@ void MainWindow::createActions()
     m_findAction->setShortcut(QKeySequence::Find);
     m_findAction->setStatusTip("Find text in the current file");
 
+    m_findNextAction = new QAction("Find &Next", this);
+    m_findNextAction->setShortcut(QKeySequence(Qt::Key_F3));
+    m_findNextAction->setStatusTip("Repeat the last search");
+
+    m_replaceAction = new QAction("&Replace...", this);
+    m_replaceAction->setShortcut(QKeySequence::Replace);
+    m_replaceAction->setStatusTip("Find and replace text");
+
     m_commentAction = new QAction("&Comment / Uncomment", this);
     m_commentAction->setShortcut(QKeySequence("Ctrl+/"));
     m_commentAction->setStatusTip("Toggle line comments (// or # based on file language)");
@@ -208,6 +222,11 @@ void MainWindow::createActions()
     m_paraviewConfigAction = new QAction("ParaView &Path...", this);
     m_paraviewConfigAction->setStatusTip("Configure the ParaView executable path");
 
+    m_pythonAction = new QAction(makeIcon(QColor("#3776AB"), "Py"),
+                                 "Run &Python", this);
+    m_pythonAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
+    m_pythonAction->setStatusTip("Run the current Python file with system Python");
+
     m_pythonConfigAction = new QAction("Python &Path...", this);
     m_pythonConfigAction->setStatusTip("Configure the Python executable path");
 
@@ -231,11 +250,6 @@ void MainWindow::createActions()
     m_bcPanelAction->setCheckable(true);
     m_bcPanelAction->setChecked(true);
 
-    m_pythonAction = new QAction(makeIcon(QColor("#3776AB"), "Py"),
-                                 "Run &Python", this);
-    m_pythonAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
-    m_pythonAction->setStatusTip("Run the current Python file with system Python");
-
     m_terminalAction = new QAction(makeIcon(QColor("#444444"), ">_"),
                                    "&Terminal", this);
     m_terminalAction->setShortcut(QKeySequence("Ctrl+`"));
@@ -251,6 +265,8 @@ void MainWindow::createActions()
     for (int i = 0; i < MaxRecentCases; ++i) {
         m_recentCaseActions[i] = new QAction(this);
         m_recentCaseActions[i]->setVisible(false);
+        m_recentFileActions[i] = new QAction(this);
+        m_recentFileActions[i]->setVisible(false);
     }
 }
 
@@ -265,6 +281,9 @@ void MainWindow::createMenus()
     m_recentCasesMenu = m_fileMenu->addMenu("&Recent Cases");
     for (int i = 0; i < MaxRecentCases; ++i)
         m_recentCasesMenu->addAction(m_recentCaseActions[i]);
+    auto *recentFilesMenu = m_fileMenu->addMenu("Recent &Files");
+    for (int i = 0; i < MaxRecentCases; ++i)
+        recentFilesMenu->addAction(m_recentFileActions[i]);
     m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_saveAction);
     m_fileMenu->addAction(m_saveAsAction);
@@ -283,6 +302,8 @@ void MainWindow::createMenus()
     m_editMenu->addAction(m_redoAction);
     m_editMenu->addSeparator();
     m_editMenu->addAction(m_findAction);
+    m_editMenu->addAction(m_findNextAction);
+    m_editMenu->addAction(m_replaceAction);
     m_editMenu->addAction(m_commentAction);
     m_editMenu->addSeparator();
     m_editMenu->addAction(m_acCppAction);
@@ -315,6 +336,15 @@ void MainWindow::createMenus()
     addViewToggle("Show Run C++",          m_cppAction, true);
     addViewToggle("Show Sync Boundaries",  m_syncBoundariesAction, true);
     addViewToggle("Show ParaView",         m_paraviewAction, true);
+    m_viewMenu->addSeparator();
+    m_themeAction = m_viewMenu->addAction("Dark &Theme");
+    m_themeAction->setCheckable(true);
+    m_themeAction->setShortcut(QKeySequence("Ctrl+T"));
+    connect(m_themeAction, &QAction::toggled, [this](bool on) {
+        applyTheme(on);
+        saveSettings();
+    });
+
     m_viewMenu->addSeparator();
     QAction *resetLayout = m_viewMenu->addAction("Reset Default &Layout");
     connect(resetLayout, &QAction::triggered, [this]() {
@@ -516,6 +546,8 @@ void MainWindow::setupConnections()
         else statusBar()->showMessage("No file is open to redo.", 3000);
     });
     connect(m_findAction, &QAction::triggered, this, &MainWindow::onFindText);
+    connect(m_findNextAction, &QAction::triggered, this, &MainWindow::onFindNext);
+    connect(m_replaceAction, &QAction::triggered, this, &MainWindow::onReplaceText);
     connect(m_commentAction, &QAction::triggered, [this]() {
         if (auto *e = currentEditor()) e->toggleComment();
         else statusBar()->showMessage("No file is open to comment.", 3000);
@@ -571,6 +603,11 @@ void MainWindow::setupConnections()
     for (int i = 0; i < MaxRecentCases; ++i) {
         connect(m_recentCaseActions[i], &QAction::triggered,
                 this, &MainWindow::onOpenRecentCase);
+        connect(m_recentFileActions[i], &QAction::triggered, [this, i]() {
+            QString path = m_recentFileActions[i]->data().toString();
+            if (!path.isEmpty() && QFileInfo::exists(path))
+                openFileInTab(path);
+        });
     }
 }
 
@@ -811,61 +848,77 @@ bool MainWindow::openFileInTab(const QString &filePath)
     updateStatusBarForEditor(editor);
     statusBar()->showMessage("Opened: " + fi.fileName(), 3000);
 
-    // Load into BC panel or turbulence panel based on file type
+    routeFileToPanel(filePath, content, lang);
+
+    addRecentFile(filePath);
+    return true;
+}
+
+void MainWindow::routeFileToPanel(const QString &fileName, const QString &content, FileLanguage lang)
+{
+    // Set editor on all panels so context menus work
+    auto *editor = currentEditor();
     m_bcPanel->setEditor(editor);
     m_turbulencePanel->setEditor(editor);
     m_schemesPanel->setEditor(editor);
     m_snappyPanel->setEditor(editor);
     m_dictPanel->setEditor(editor);
 
-    QFileInfo fi2(filePath);
-    if (fi2.fileName() == "turbulenceProperties" && lang == FileLanguage::OpenFOAM) {
-        m_turbulencePanel->loadTurbulenceFile(filePath, content);
-        m_rightPanelStack->setCurrentIndex(1);
-        m_bcPanelDock->setWindowTitle("Turbulence Model");
-    } else if ((fi2.fileName() == "fvSchemes" || fi2.fileName() == "fvSolution")
-               && lang == FileLanguage::OpenFOAM) {
-        m_schemesPanel->loadFile(filePath, content);
-        m_rightPanelStack->setCurrentIndex(2);
-        m_bcPanelDock->setWindowTitle("Discretisation & Solvers");
-    } else if (fi2.fileName() == "snappyHexMeshDict"
-               && lang == FileLanguage::OpenFOAM) {
-        m_snappyPanel->loadFile(filePath, content);
-        m_rightPanelStack->setCurrentIndex(3);
-        m_bcPanelDock->setWindowTitle("snappyHexMesh");
-    } else if ((fi2.fileName() == "blockMeshDict" || fi2.fileName() == "topoSetDict"
-                || fi2.fileName() == "dynamicMeshDict" || fi2.fileName() == "controlDict"
-                || fi2.fileName() == "decomposeParDict" || fi2.fileName() == "refineMeshDict"
-                || fi2.fileName() == "transportProperties"
-                || fi2.fileName() == "thermophysicalProperties"
-                || fi2.fileName() == "radiationProperties"
-                || fi2.fileName() == "combustionProperties"
-                || fi2.fileName() == "setFieldsDict" || fi2.fileName() == "sampleDict"
-                || fi2.fileName() == "surfaceFeatureExtractDict"
-                || fi2.fileName() == "mapFieldsDict" || fi2.fileName() == "createPatchDict"
-                || fi2.fileName() == "extrudeMeshDict" || fi2.fileName() == "forces"
-                || fi2.fileName() == "forceCoeffs" || fi2.fileName() == "fvConstraints"
-                || fi2.fileName() == "mirrorMeshDict" || fi2.fileName() == "renumberMeshDict"
-                || fi2.fileName() == "transformPointsDict"
-                || fi2.fileName() == "waveProperties"
-                || fi2.fileName() == "waveProperties.input")
-               && lang == FileLanguage::OpenFOAM) {
-        m_dictPanel->loadFile(filePath, content);
-        m_rightPanelStack->setCurrentIndex(4);
-        m_bcPanelDock->setWindowTitle(fi2.fileName());
-    } else if (lang == FileLanguage::OpenFOAM) {
-        m_bcPanel->loadFieldFile(filePath, content);
-        m_rightPanelStack->setCurrentIndex(0);
-        m_bcPanelDock->setWindowTitle("Boundary Conditions");
-    } else {
+    if (lang != FileLanguage::OpenFOAM) {
         m_bcPanel->clear();
         m_turbulencePanel->clear();
         m_schemesPanel->clear();
         m_snappyPanel->clear();
         m_dictPanel->clear();
+        return;
     }
 
-    return true;
+    QFileInfo fi(fileName);
+    QString base = fi.fileName();
+
+    // Turbulence
+    if (base == "turbulenceProperties") {
+        m_turbulencePanel->loadTurbulenceFile(fileName, content);
+        m_rightPanelStack->setCurrentIndex(1);
+        m_bcPanelDock->setWindowTitle("Turbulence Model");
+        return;
+    }
+    // Schemes / solvers
+    if (base == "fvSchemes" || base == "fvSolution") {
+        m_schemesPanel->loadFile(fileName, content);
+        m_rightPanelStack->setCurrentIndex(2);
+        m_bcPanelDock->setWindowTitle("Discretisation & Solvers");
+        return;
+    }
+    // snappyHexMesh
+    if (base == "snappyHexMeshDict") {
+        m_snappyPanel->loadFile(fileName, content);
+        m_rightPanelStack->setCurrentIndex(3);
+        m_bcPanelDock->setWindowTitle("snappyHexMesh");
+        return;
+    }
+    // Dict Panel — all known dictionary files
+    static const QSet<QString> dictFiles = {
+        "blockMeshDict","topoSetDict","dynamicMeshDict","controlDict",
+        "decomposeParDict","refineMeshDict","transportProperties",
+        "thermophysicalProperties","radiationProperties","combustionProperties",
+        "setFieldsDict","sampleDict","surfaceFeatureExtractDict",
+        "mapFieldsDict","createPatchDict","extrudeMeshDict",
+        "forces","forceCoeffs","fvConstraints",
+        "mirrorMeshDict","renumberMeshDict","transformPointsDict",
+        "waveProperties","waveProperties.input"
+    };
+    if (dictFiles.contains(base)) {
+        m_dictPanel->loadFile(fileName, content);
+        m_rightPanelStack->setCurrentIndex(4);
+        m_bcPanelDock->setWindowTitle(base);
+        return;
+    }
+
+    // Default: treat as field file with BC panel
+    m_bcPanel->loadFieldFile(fileName, content);
+    m_rightPanelStack->setCurrentIndex(0);
+    m_bcPanelDock->setWindowTitle("Boundary Conditions");
 }
 
 void MainWindow::onSaveFile()
@@ -1011,7 +1064,8 @@ void MainWindow::onCloseTab(int index)
 
     // Welcome tab (QLabel) or editor tab — close it
     m_tabWidget->removeTab(index);
-    // Note: no auto-recreate — empty tab area is fine, user can use File → Open Case
+    if (widget)
+        widget->deleteLater(); // Qt auto-disconnects signals on deletion
 }
 
 void MainWindow::onTabChanged(int index)
@@ -1019,59 +1073,9 @@ void MainWindow::onTabChanged(int index)
     auto *editor = qobject_cast<CodeEditor*>(m_tabWidget->widget(index));
     updateStatusBarForEditor(editor);
 
-    if (editor && !editor->fileName().isEmpty()) {
-        m_bcPanel->setEditor(editor);
-        m_turbulencePanel->setEditor(editor);
-        m_schemesPanel->setEditor(editor);
-        m_snappyPanel->setEditor(editor);
-        m_dictPanel->setEditor(editor);
-
-        QFileInfo fi(editor->fileName());
-        if (fi.fileName() == "turbulenceProperties"
-            && editor->language() == FileLanguage::OpenFOAM) {
-            m_turbulencePanel->loadTurbulenceFile(editor->fileName(), editor->toPlainText());
-            m_rightPanelStack->setCurrentIndex(1);
-            m_bcPanelDock->setWindowTitle("Turbulence Model");
-        } else if ((fi.fileName() == "fvSchemes" || fi.fileName() == "fvSolution")
-                   && editor->language() == FileLanguage::OpenFOAM) {
-            m_schemesPanel->loadFile(editor->fileName(), editor->toPlainText());
-            m_rightPanelStack->setCurrentIndex(2);
-            m_bcPanelDock->setWindowTitle("Discretisation & Solvers");
-        } else if (fi.fileName() == "snappyHexMeshDict"
-                   && editor->language() == FileLanguage::OpenFOAM) {
-            m_snappyPanel->loadFile(editor->fileName(), editor->toPlainText());
-            m_rightPanelStack->setCurrentIndex(3);
-            m_bcPanelDock->setWindowTitle("snappyHexMesh");
-        } else if ((fi.fileName() == "blockMeshDict" || fi.fileName() == "topoSetDict"
-                    || fi.fileName() == "dynamicMeshDict" || fi.fileName() == "controlDict"
-                    || fi.fileName() == "decomposeParDict" || fi.fileName() == "refineMeshDict"
-                    || fi.fileName() == "transportProperties"
-                    || fi.fileName() == "thermophysicalProperties"
-                    || fi.fileName() == "radiationProperties"
-                    || fi.fileName() == "combustionProperties"
-                    || fi.fileName() == "setFieldsDict" || fi.fileName() == "sampleDict"
-                    || fi.fileName() == "surfaceFeatureExtractDict"
-                    || fi.fileName() == "mapFieldsDict" || fi.fileName() == "createPatchDict"
-                    || fi.fileName() == "extrudeMeshDict" || fi.fileName() == "forces"
-                    || fi.fileName() == "forceCoeffs" || fi.fileName() == "fvConstraints"
-                    || fi.fileName() == "mirrorMeshDict" || fi.fileName() == "renumberMeshDict"
-                    || fi.fileName() == "transformPointsDict")
-                   && editor->language() == FileLanguage::OpenFOAM) {
-            m_dictPanel->loadFile(editor->fileName(), editor->toPlainText());
-            m_rightPanelStack->setCurrentIndex(4);
-            m_bcPanelDock->setWindowTitle(fi.fileName());
-        } else if (editor->language() == FileLanguage::OpenFOAM) {
-            m_bcPanel->loadFieldFile(editor->fileName(), editor->toPlainText());
-            m_rightPanelStack->setCurrentIndex(0);
-            m_bcPanelDock->setWindowTitle("Boundary Conditions");
-        } else {
-            m_bcPanel->clear();
-            m_turbulencePanel->clear();
-            m_schemesPanel->clear();
-        m_snappyPanel->clear();
-        m_dictPanel->clear();
-        }
-    } else {
+    if (editor && !editor->fileName().isEmpty())
+        routeFileToPanel(editor->fileName(), editor->toPlainText(), editor->language());
+    else {
         m_bcPanel->clear();
         m_turbulencePanel->clear();
         m_schemesPanel->clear();
@@ -1088,15 +1092,14 @@ void MainWindow::onFindText()
         return;
     }
 
-    // Use a proper find dialog
     bool ok;
     QString searchText = QInputDialog::getText(this, "Find",
         "Search for:", QLineEdit::Normal,
         editor->textCursor().selectedText(), &ok);
 
     if (!ok || searchText.isEmpty()) return;
+    m_lastSearchText = searchText;
 
-    // Find from current cursor position
     QTextCursor cursor = editor->textCursor();
     if (cursor.hasSelection()) {
         cursor.setPosition(cursor.selectionEnd());
@@ -1105,19 +1108,130 @@ void MainWindow::onFindText()
 
     bool found = editor->find(searchText);
     if (!found) {
-        // Wrap around
         QTextCursor startCur = editor->textCursor();
         startCur.movePosition(QTextCursor::Start);
         editor->setTextCursor(startCur);
         found = editor->find(searchText);
     }
 
-    if (!found) {
+    if (!found)
         statusBar()->showMessage("Text not found: \"" + searchText + "\"", 4000);
-    } else {
-        statusBar()->showMessage("Found: \"" + searchText + "\"", 3000);
-        // Press F3 to find next
+    else
+        statusBar()->showMessage("Found: \"" + searchText + "\" — F3 for next", 3000);
+}
+
+void MainWindow::onFindNext()
+{
+    auto *editor = currentEditor();
+    if (!editor || m_lastSearchText.isEmpty()) {
+        onFindText();
+        return;
     }
+
+    QTextCursor cursor = editor->textCursor();
+    if (cursor.hasSelection()) {
+        cursor.setPosition(cursor.selectionEnd());
+        editor->setTextCursor(cursor);
+    }
+
+    bool found = editor->find(m_lastSearchText);
+    if (!found) {
+        QTextCursor startCur = editor->textCursor();
+        startCur.movePosition(QTextCursor::Start);
+        editor->setTextCursor(startCur);
+        found = editor->find(m_lastSearchText);
+    }
+
+    if (!found)
+        statusBar()->showMessage("No more occurrences of \"" + m_lastSearchText + "\"", 4000);
+}
+
+void MainWindow::onReplaceText()
+{
+    auto *editor = currentEditor();
+    if (!editor) {
+        statusBar()->showMessage("No file is open.", 3000);
+        return;
+    }
+
+    // Build a custom dialog with Find + Replace fields
+    QDialog dlg(this);
+    dlg.setWindowTitle("Find and Replace");
+    auto *layout = new QVBoxLayout(&dlg);
+
+    auto *fRow = new QHBoxLayout();
+    fRow->addWidget(new QLabel("Find:"));
+    auto *findEdit = new QLineEdit(m_lastSearchText);
+    fRow->addWidget(findEdit);
+    layout->addLayout(fRow);
+
+    auto *rRow = new QHBoxLayout();
+    rRow->addWidget(new QLabel("Replace:"));
+    auto *replaceEdit = new QLineEdit();
+    rRow->addWidget(replaceEdit);
+    layout->addLayout(rRow);
+
+    auto *btnRow = new QHBoxLayout();
+    auto *findBtn = new QPushButton("&Find Next");
+    auto *replaceBtn = new QPushButton("&Replace");
+    auto *replaceAllBtn = new QPushButton("Replace &All");
+    auto *closeBtn = new QPushButton("Close");
+    btnRow->addWidget(findBtn);
+    btnRow->addWidget(replaceBtn);
+    btnRow->addWidget(replaceAllBtn);
+    btnRow->addWidget(closeBtn);
+    layout->addLayout(btnRow);
+
+    connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+    auto doFind = [&]() {
+        m_lastSearchText = findEdit->text();
+        if (m_lastSearchText.isEmpty()) return false;
+        QTextCursor c = editor->textCursor();
+        if (c.hasSelection()) {
+            c.setPosition(c.selectionEnd());
+            editor->setTextCursor(c);
+        }
+        bool found = editor->find(m_lastSearchText);
+        if (!found) {
+            QTextCursor sc = editor->textCursor();
+            sc.movePosition(QTextCursor::Start);
+            editor->setTextCursor(sc);
+            found = editor->find(m_lastSearchText);
+        }
+        return found;
+    };
+
+    connect(findBtn, &QPushButton::clicked, [&]() {
+        if (doFind())
+            statusBar()->showMessage("Found: \"" + m_lastSearchText + "\"", 3000);
+        else
+            statusBar()->showMessage("Not found", 3000);
+    });
+
+    connect(replaceBtn, &QPushButton::clicked, [&]() {
+        auto *ed = editor;
+        if (ed->textCursor().hasSelection()
+            && ed->textCursor().selectedText() == findEdit->text()) {
+            ed->textCursor().insertText(replaceEdit->text());
+        }
+        if (doFind())
+            statusBar()->showMessage("Replaced — F3 for next", 3000);
+        else
+            statusBar()->showMessage("No more occurrences", 3000);
+    });
+
+    connect(replaceAllBtn, &QPushButton::clicked, [&]() {
+        int count = 0;
+        QTextCursor sc = editor->textCursor();
+        sc.movePosition(QTextCursor::Start);
+        editor->setTextCursor(sc);
+        while (editor->find(findEdit->text()))
+            { editor->textCursor().insertText(replaceEdit->text()); count++; }
+        statusBar()->showMessage(QString("Replaced %1 occurrences").arg(count), 5000);
+    });
+
+    dlg.exec();
 }
 
 void MainWindow::onNewFile()
@@ -1437,7 +1551,8 @@ int MainWindow::syncBoundariesForCase(const QString &casePath, QStringList *upda
     return updatedCount;
 }
 
-// ── Unified terminal-style output dialog (VSCode light by default) ──
+
+// ── Terminal-style output dialog (light by default) ──
 static void showTerminalOutput(QWidget *parent, const QString &title,
     const QString &headerOk, const QString &headerErr,
     const QString &output, const QString &info, int exitCode)
@@ -1445,338 +1560,148 @@ static void showTerminalOutput(QWidget *parent, const QString &title,
     QDialog dlg(parent);
     dlg.setWindowTitle(title);
     dlg.resize(750, 550);
-    dlg.setMinimumSize(500, 350);
-
     auto *root = new QVBoxLayout(&dlg);
-    root->setContentsMargins(0, 0, 0, 0);
-    root->setSpacing(0);
-
-    // ── Title bar (VSCode-style) ──
-    auto *titleBar = new QWidget();
-    titleBar->setStyleSheet(exitCode == 0
-        ? "background: #0078D7;"
-        : "background: #C72E2E;");
-    auto *tb = new QHBoxLayout(titleBar);
-    tb->setContentsMargins(14, 9, 14, 9);
-    auto *statusIcon = new QLabel("●");
-    statusIcon->setStyleSheet("color: white; font-size: 11px;");
-    tb->addWidget(statusIcon);
-    auto *titleLbl = new QLabel(exitCode == 0 ? headerOk : headerErr);
-    titleLbl->setStyleSheet("color: white; font-size: 13px; font-weight: 600; font-family: 'Segoe UI';");
-    tb->addWidget(titleLbl, 1);
-    auto *exitLabel = new QLabel(QString("Exit: %1").arg(exitCode));
-    exitLabel->setStyleSheet("color: rgba(255,255,255,0.75); font-size: 11px; "
-        "font-family: 'Cascadia Code', 'Consolas', monospace;");
-    tb->addWidget(exitLabel);
-    root->addWidget(titleBar);
-
-    // ── Output area (VSCode light theme by default) ──
-    auto *te = new QTextEdit();
-    te->setReadOnly(true);
-    QFont monoFont("Cascadia Code", 10);
-    monoFont.setStyleHint(QFont::Monospace);
-    if (!QFontInfo(monoFont).exactMatch()) {
-        monoFont = QFont("Consolas", 10);
-        monoFont.setStyleHint(QFont::Monospace);
-    }
-    te->setFont(monoFont);
-
-    bool darkMode = false;
-    auto applyTheme = [te](bool dark) {
-        if (dark) {
-            te->setStyleSheet(
-                "QTextEdit { background: #0D0D0D; color: #D4D4D4; border: none; "
-                "padding: 14px; selection-background-color: #264F78; }"
-                "QScrollBar:vertical { background: #1E1E1E; width: 10px; margin: 0; }"
-                "QScrollBar::handle:vertical { background: #555; border-radius: 5px; min-height: 30px; }"
-                "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
-        } else {
-            te->setStyleSheet(
-                "QTextEdit { background: #FFFFFF; color: #1E1E1E; border: none; "
-                "padding: 14px; selection-background-color: #ADD6FF; }"
-                "QScrollBar:vertical { background: #F5F5F5; width: 10px; margin: 0; }"
-                "QScrollBar::handle:vertical { background: #C1C1C1; border-radius: 5px; min-height: 30px; }"
-                "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
-        }
-    };
-    applyTheme(false); // default: VSCode light
-    te->setPlainText(output.isEmpty() ? "(no output)" : output);
-    root->addWidget(te, 1);
-
-    // ── Footer (VSCode status bar style) ──
-    auto *footer = new QWidget();
-    footer->setStyleSheet(exitCode == 0
-        ? "background: #0078D7; border-top: none;"
-        : "background: #C72E2E; border-top: none;");
-    auto *fb = new QHBoxLayout(footer);
-    fb->setContentsMargins(14, 5, 14, 5);
+    auto *hdr = new QLabel(exitCode == 0 ? headerOk : headerErr);
+    hdr->setStyleSheet(QString("padding:8px; font-weight:bold; color:%1; background:%2;")
+        .arg(exitCode == 0 ? "#1A7A1A" : "#C72525")
+        .arg(exitCode == 0 ? "#E8F5E9" : "#FDE8E8"));
+    root->addWidget(hdr);
     auto *infoLbl = new QLabel(info);
-    infoLbl->setStyleSheet("color: rgba(255,255,255,0.85); font-size: 11px; "
-        "font-family: 'Cascadia Code', 'Consolas', monospace;");
-    fb->addWidget(infoLbl, 1);
-
-    // ── Theme toggle button ──
-    auto *themeBtn = new QPushButton("☽ Dark");
-    themeBtn->setStyleSheet(
-        "QPushButton { padding: 3px 10px; background: rgba(255,255,255,0.15); color: white; "
-        "border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; font-size: 11px; }"
-        "QPushButton:hover { background: rgba(255,255,255,0.25); }");
-    QObject::connect(themeBtn, &QPushButton::clicked, [te, themeBtn, applyTheme, &darkMode]() {
-        darkMode = !darkMode;
-        applyTheme(darkMode);
-        themeBtn->setText(darkMode ? "☀ Light" : "☽ Dark");
+    infoLbl->setStyleSheet("padding:4px 8px; color:#666; font-size:11px; background:#F5F5F5;");
+    root->addWidget(infoLbl);
+    auto *out = new QPlainTextEdit();
+    out->setReadOnly(true);
+    out->setFont(QFont("Consolas", 10));
+    out->setPlainText(output);
+    // Default: light theme
+    out->setStyleSheet("QPlainTextEdit { background:#F5F5F5; color:#1E1E1E; border:none; }");
+    root->addWidget(out, 1);
+    auto *btns = new QHBoxLayout();
+    auto *themeBtn = new QPushButton("Dark");
+    themeBtn->setCheckable(true);
+    QObject::connect(themeBtn, &QPushButton::toggled, [out, themeBtn](bool dark) {
+        if (dark) {
+            out->setStyleSheet("QPlainTextEdit { background:#1E1E1E; color:#DCDCDC; border:none; }");
+            themeBtn->setText("Light");
+        } else {
+            out->setStyleSheet("QPlainTextEdit { background:#F5F5F5; color:#1E1E1E; border:none; }");
+            themeBtn->setText("Dark");
+        }
     });
-    fb->addWidget(themeBtn);
-
-    auto *copyBtn = new QPushButton("Copy");
-    copyBtn->setStyleSheet(
-        "QPushButton { padding: 3px 12px; background: rgba(255,255,255,0.15); color: white; "
-        "border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; font-size: 11px; }"
-        "QPushButton:hover { background: rgba(255,255,255,0.25); }");
-    QObject::connect(copyBtn, &QPushButton::clicked, [te]() {
-        QApplication::clipboard()->setText(te->toPlainText());
-    });
-    fb->addWidget(copyBtn);
-
+    btns->addWidget(themeBtn);
+    btns->addStretch();
     auto *closeBtn = new QPushButton("Close");
-    closeBtn->setStyleSheet(
-        "QPushButton { padding: 3px 14px; background: rgba(255,255,255,0.2); color: white; "
-        "border: none; border-radius: 3px; font-size: 11px; font-weight: 600; }"
-        "QPushButton:hover { background: rgba(255,255,255,0.35); }");
     QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
-    fb->addWidget(closeBtn);
-    root->addWidget(footer);
-
+    btns->addWidget(closeBtn);
+    root->addLayout(btns);
     dlg.exec();
 }
 
-// ── Run Python ──────────────────────────────────────────────────
 void MainWindow::onRunPython()
 {
-    // Find Python executable: user-configured path first
     QString pythonPath = m_pythonPath;
     if (!pythonPath.isEmpty() && !QFileInfo::exists(pythonPath))
         pythonPath.clear();
-
     if (pythonPath.isEmpty())
         pythonPath = QStandardPaths::findExecutable("python");
     if (pythonPath.isEmpty())
         pythonPath = QStandardPaths::findExecutable("python3");
     if (pythonPath.isEmpty()) {
-        // Check common Windows paths
-        QStringList pyPaths = {
-            "C:/Python312/python.exe", "C:/Python311/python.exe",
-            "C:/Python310/python.exe", "C:/Python39/python.exe",
-        };
-        QString home = qgetenv("USERNAME");
-        pyPaths << "C:/Users/" + home + "/AppData/Local/Programs/Python/Python312/python.exe";
-        pyPaths << "C:/Users/" + home + "/AppData/Local/Programs/Python/Python311/python.exe";
+        QStringList pyPaths = {"C:/Python312/python.exe","C:/Python311/python.exe","C:/Python310/python.exe"};
         for (const auto &p : pyPaths)
             if (QFileInfo::exists(p)) { pythonPath = p; break; }
     }
-
-    // If the current file is a .py, run it. Otherwise ask user.
     CodeEditor *editor = currentEditor();
     QString scriptPath;
-
     if (editor && editor->fileName().endsWith(".py", Qt::CaseInsensitive)) {
         scriptPath = editor->fileName();
-        // Save before running
-        if (editor->document()->isModified())
-            saveEditor(editor);
+        if (editor->document()->isModified()) saveEditor(editor);
     } else {
-        // Let user pick a Python file
         scriptPath = QFileDialog::getOpenFileName(this, "Select Python Script",
             QString(), "Python Files (*.py);;All Files (*.*)");
     }
-
-    if (scriptPath.isEmpty() || pythonPath.isEmpty()) {
-        if (pythonPath.isEmpty()) {
-            QMessageBox::information(this, "Python Not Found",
-                "Python is not installed or not in PATH.\n\n"
-                "Install Python from https://www.python.org/downloads/\n"
-                "and ensure it is added to your system PATH.");
-        }
-        return;
-    }
-
-    // Run the script and capture output
+    if (scriptPath.isEmpty() || pythonPath.isEmpty()) return;
     QProcess proc;
     proc.setWorkingDirectory(QFileInfo(scriptPath).absolutePath());
     proc.start(pythonPath, {scriptPath});
-
-    if (!proc.waitForStarted(5000)) {
-        QMessageBox::warning(this, "Python Error",
-            "Failed to start Python.\nPath: " + pythonPath);
-        return;
-    }
-
-    statusBar()->showMessage("Running: " + scriptPath, 3000);
-
-    // Wait up to 60 seconds for completion
-    if (!proc.waitForFinished(60000)) {
-        proc.kill();
-        QMessageBox::warning(this, "Python Timeout",
-            "The script took too long and was terminated.");
-        return;
-    }
-
-    QString output = QString::fromUtf8(proc.readAllStandardOutput());
-    QString errors = QString::fromUtf8(proc.readAllStandardError());
+    proc.waitForFinished(30000);
+    QString result = QString::fromUtf8(proc.readAllStandardOutput());
+    QString errs = QString::fromUtf8(proc.readAllStandardError());
+    if (!errs.isEmpty()) result += "\n--- STDERR ---\n" + errs;
+    if (result.isEmpty()) result = "(no output)";
     int exitCode = proc.exitCode();
-
-    // Show output dialog
-    QString result;
-    if (!output.isEmpty())
-        result += output;
-    if (!errors.isEmpty()) {
-        if (!result.isEmpty()) result += "\n\n";
-        result += "--- STDERR ---\n" + errors;
-    }
-    if (result.isEmpty())
-        result = "(no output)";
-
-    showTerminalOutput(this, "Python Output",
-        "Python Script Completed", "Python Script Error",
-        result,
-        QFileInfo(scriptPath).fileName() + "   |   " + pythonPath,
-        exitCode);
-
-    statusBar()->showMessage(
-        QString("Python exit code: %1").arg(exitCode), 5000);
+    showTerminalOutput(this, "Python Output", "Python Script Completed", "Python Script Error",
+        result, QFileInfo(scriptPath).fileName() + "   |   " + pythonPath, exitCode);
+    statusBar()->showMessage(QString("Python exit code: %1").arg(exitCode), 5000);
 }
 
 void MainWindow::onConfigurePython()
 {
     QString path = QFileDialog::getOpenFileName(this, "Select Python Executable",
-        m_pythonPath.isEmpty() ? "C:/" : QFileInfo(m_pythonPath).absolutePath(),
-#ifdef Q_OS_WIN
-        "Python (python.exe);;All Files (*.*)"
-#else
-        "Python (python python3);;All Files (*)"
-#endif
-    );
-    if (!path.isEmpty()) {
-        m_pythonPath = path;
-        saveSettings();
-        statusBar()->showMessage("Python path set: " + path, 5000);
-    }
+        QString(), "Python (python.exe python python3);;All Files (*)");
+    if (!path.isEmpty()) { m_pythonPath = path; saveSettings(); }
 }
 
-// ── Configure C++ compiler path ─────────────────────────────────
-void MainWindow::onConfigureCpp()
-{
-    QString path = QFileDialog::getOpenFileName(this, "Select C++ Compiler (g++)",
-        m_cppCompilerPath.isEmpty() ? "D:/3.Wpsandother/mingw64/bin" : QFileInfo(m_cppCompilerPath).absolutePath(),
-        "g++ (g++.exe);;All Files (*.*)");
-    if (!path.isEmpty()) {
-        m_cppCompilerPath = path;
-        saveSettings();
-        statusBar()->showMessage("C++ compiler path set: " + path, 5000);
-    }
-}
-
-// ── Run C++ ─────────────────────────────────────────────────────
 void MainWindow::onRunCpp()
 {
     QString compilerPath = m_cppCompilerPath;
     if (compilerPath.isEmpty() || !QFileInfo::exists(compilerPath)) {
-        // Auto-detect g++
         compilerPath = QStandardPaths::findExecutable("g++");
-        if (compilerPath.isEmpty())
-            compilerPath = QStandardPaths::findExecutable("c++");
-        // Common MinGW/MSYS2 paths
-        QStringList paths = {
-            "D:/3.Wpsandother/mingw64/bin/g++.exe",
-            "C:/msys64/mingw64/bin/g++.exe",
-            "C:/mingw64/bin/g++.exe",
-        };
-        for (const auto &p : paths)
+        if (compilerPath.isEmpty()) compilerPath = QStandardPaths::findExecutable("c++");
+        for (const auto &p : {"C:/msys64/mingw64/bin/g++.exe","C:/mingw64/bin/g++.exe"})
             if (QFileInfo::exists(p)) { compilerPath = p; break; }
     }
-
     if (compilerPath.isEmpty()) {
         QMessageBox::information(this, "Compiler Not Found",
-            "g++ compiler not found.\n\n"
-            "Configure the path via: Case → C++ Compiler Path...\n"
-            "Example: D:/mingw64/bin/g++.exe");
+            "g++ not found. Configure via: Case → C++ Compiler Path...");
         return;
     }
-
     CodeEditor *editor = currentEditor();
     QString sourcePath;
-
-    if (editor && (editor->fileName().endsWith(".cpp", Qt::CaseInsensitive)
-                   || editor->fileName().endsWith(".cxx", Qt::CaseInsensitive)
-                   || editor->fileName().endsWith(".cc", Qt::CaseInsensitive)
-                   || editor->fileName().endsWith(".c", Qt::CaseInsensitive))) {
+    if (editor && (editor->fileName().endsWith(".cpp") || editor->fileName().endsWith(".cxx")
+                   || editor->fileName().endsWith(".cc") || editor->fileName().endsWith(".c"))) {
         sourcePath = editor->fileName();
-        if (editor->document()->isModified())
-            saveEditor(editor);
+        if (editor->document()->isModified()) saveEditor(editor);
     } else {
-        sourcePath = QFileDialog::getOpenFileName(this, "Select C++ Source File",
+        sourcePath = QFileDialog::getOpenFileName(this, "Select C++ Source",
             QString(), "C++ Files (*.cpp *.cxx *.cc *.c);;All Files (*.*)");
     }
-
     if (sourcePath.isEmpty()) return;
-
     QFileInfo srcInfo(sourcePath);
     QString exePath = srcInfo.absolutePath() + "/" + srcInfo.completeBaseName() + ".exe";
-
-    // Compile
-    statusBar()->showMessage("Compiling: " + srcInfo.fileName(), 3000);
-
-    QProcess compile;
-    compile.setWorkingDirectory(srcInfo.absolutePath());
-    compile.start(compilerPath, {"-std=c++17", "-O2", "-o", exePath, sourcePath});
-
-    if (!compile.waitForFinished(30000)) {
-        QMessageBox::warning(this, "Compilation Timeout", "Compilation timed out.");
-        return;
+    QProcess proc;
+    proc.setWorkingDirectory(srcInfo.absolutePath());
+    proc.start(compilerPath, {"-std=c++17", "-O2", "-o", exePath, sourcePath});
+    proc.waitForFinished(30000);
+    QString output = QString::fromUtf8(proc.readAllStandardOutput());
+    QString errors = QString::fromUtf8(proc.readAllStandardError());
+    int exitCode = proc.exitCode();
+    if (exitCode == 0) {
+        QProcess runProc;
+        runProc.setWorkingDirectory(srcInfo.absolutePath());
+        runProc.start(exePath);
+        runProc.waitForFinished(30000);
+        output += "\n--- RUN ---\n" + QString::fromUtf8(runProc.readAllStandardOutput());
+        QString runErr = QString::fromUtf8(runProc.readAllStandardError());
+        if (!runErr.isEmpty()) output += "\n--- RUN STDERR ---\n" + runErr;
+        exitCode = runProc.exitCode();
+        QFile::remove(exePath);
+    } else {
+        if (!errors.isEmpty()) output = errors + "\n" + output;
     }
-
-    QString compileErr = QString::fromUtf8(compile.readAllStandardError());
-    if (compile.exitCode() != 0) {
-        QMessageBox::warning(this, "Compilation Failed",
-            "Compilation failed with exit code " + QString::number(compile.exitCode()) + "\n\n" + compileErr);
-        statusBar()->showMessage("Compilation failed.", 5000);
-        return;
-    }
-
-    statusBar()->showMessage("Compiled OK. Running...", 3000);
-
-    // Run
-    QProcess run;
-    run.setWorkingDirectory(srcInfo.absolutePath());
-    run.start(exePath, {});
-
-    if (!run.waitForStarted(5000)) {
-        QMessageBox::warning(this, "Run Failed", "Failed to start: " + exePath);
-        return;
-    }
-
-    if (!run.waitForFinished(30000)) {
-        run.kill();
-        QMessageBox::warning(this, "Execution Timeout", "Program took too long and was terminated.");
-        return;
-    }
-
-    QString output = QString::fromUtf8(run.readAllStandardOutput());
-    QString errors = QString::fromUtf8(run.readAllStandardError());
-    int exitCode = run.exitCode();
-
-    QString result;
-    if (!output.isEmpty()) result += output;
-    if (!errors.isEmpty()) { if (!result.isEmpty()) result += "\n\n"; result += "--- STDERR ---\n" + errors; }
-    if (result.isEmpty()) result = "(no output)";
-
-    showTerminalOutput(this, "C++ Output",
-        "C++ Program Completed", "C++ Program Error",
-        result,
-        srcInfo.fileName() + "   |   " + compilerPath,
-        exitCode);
-
+    if (output.isEmpty()) output = "(no output)";
+    showTerminalOutput(this, "C++ Output", "C++ Program Completed", "C++ Program Error",
+        output, srcInfo.fileName() + "   |   " + compilerPath, exitCode);
     statusBar()->showMessage(QString("C++ exit code: %1").arg(exitCode), 5000);
+}
+
+void MainWindow::onConfigureCpp()
+{
+    QString startDir = m_cppCompilerPath.isEmpty()
+        ? QString() : QFileInfo(m_cppCompilerPath).absolutePath();
+    QString path = QFileDialog::getOpenFileName(this, "Select C++ Compiler (g++)",
+        startDir, "g++ (g++.exe);;All Files (*.*)");
+    if (!path.isEmpty()) { m_cppCompilerPath = path; saveSettings(); }
 }
 
 void MainWindow::onParaView()
@@ -2057,6 +1982,31 @@ void MainWindow::updateRecentCasesMenu()
     }
 }
 
+void MainWindow::addRecentFile(const QString &path)
+{
+    m_recentFiles.removeAll(path);
+    m_recentFiles.prepend(path);
+    while (m_recentFiles.size() > MaxRecentCases)
+        m_recentFiles.removeLast();
+    updateRecentFilesMenu();
+}
+
+void MainWindow::updateRecentFilesMenu()
+{
+    for (int i = 0; i < MaxRecentCases; ++i) {
+        if (i < m_recentFiles.size()) {
+            QFileInfo fi(m_recentFiles[i]);
+            QString text = QString("&%1 %2").arg(i + 1).arg(fi.fileName());
+            m_recentFileActions[i]->setText(text);
+            m_recentFileActions[i]->setData(m_recentFiles[i]);
+            m_recentFileActions[i]->setToolTip(m_recentFiles[i]);
+            m_recentFileActions[i]->setVisible(true);
+        } else {
+            m_recentFileActions[i]->setVisible(false);
+        }
+    }
+}
+
 // ────────────────────────────────────────────────────────────────────
 // Settings persistence
 // ────────────────────────────────────────────────────────────────────
@@ -2065,18 +2015,55 @@ void MainWindow::loadSettings()
 {
     QSettings settings;
     m_recentCases = settings.value("recentCases").toStringList();
+    m_recentFiles = settings.value("recentFiles").toStringList();
     m_paraviewPath = settings.value("paraviewPath").toString();
     m_pythonPath       = settings.value("pythonPath").toString();
     m_cppCompilerPath  = settings.value("cppCompilerPath").toString();
+    m_darkTheme        = settings.value("darkTheme", false).toBool();
     restoreGeometry(settings.value("geometry").toByteArray());
     restoreState(settings.value("windowState").toByteArray());
     updateRecentCasesMenu();
+    updateRecentFilesMenu();
+    if (m_darkTheme) {
+        m_themeAction->setChecked(true);
+        applyTheme(true);
+    }
+}
+
+void MainWindow::applyTheme(bool dark)
+{
+    m_darkTheme = dark;
+    if (dark) {
+        QPalette p;
+        p.setColor(QPalette::Window,          QColor(30, 30, 30));
+        p.setColor(QPalette::WindowText,      QColor(220, 220, 220));
+        p.setColor(QPalette::Base,            QColor(42, 42, 42));
+        p.setColor(QPalette::AlternateBase,   QColor(50, 50, 50));
+        p.setColor(QPalette::ToolTipBase,     QColor(50, 50, 50));
+        p.setColor(QPalette::ToolTipText,     QColor(220, 220, 220));
+        p.setColor(QPalette::Text,            QColor(220, 220, 220));
+        p.setColor(QPalette::Button,          QColor(50, 50, 50));
+        p.setColor(QPalette::ButtonText,      QColor(220, 220, 220));
+        p.setColor(QPalette::BrightText,      Qt::red);
+        p.setColor(QPalette::Link,            QColor(86, 156, 214));
+        p.setColor(QPalette::Highlight,       QColor(0, 120, 215));
+        p.setColor(QPalette::HighlightedText, Qt::white);
+        p.setColor(QPalette::Disabled, QPalette::Text, QColor(128, 128, 128));
+        p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(128, 128, 128));
+        QApplication::setPalette(p);
+        QApplication::setStyle("Fusion");
+    } else {
+        QApplication::setPalette(QApplication::style()->standardPalette());
+        QApplication::setStyle("windowsvista");
+    }
 }
 
 void MainWindow::saveSettings()
 {
     QSettings settings;
+    settings.setValue("darkTheme", m_darkTheme);
     settings.setValue("recentCases", m_recentCases);
+    settings.setValue("recentFiles", m_recentFiles);
     settings.setValue("paraviewPath", m_paraviewPath);
     settings.setValue("pythonPath",       m_pythonPath);
     settings.setValue("cppCompilerPath",  m_cppCompilerPath);
@@ -2090,26 +2077,38 @@ void MainWindow::saveSettings()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    // Check for unsaved tabs
+    // Collect all unsaved editors
+    struct Unsaved { int index; CodeEditor *editor; };
+    QVector<Unsaved> unsaved;
+    QVector<CodeEditor*> toSave;
     for (int i = 0; i < m_tabWidget->count(); ++i) {
         auto *editor = qobject_cast<CodeEditor*>(m_tabWidget->widget(i));
-        if (editor && editor->document()->isModified()) {
-            // Switch to the tab and ask
-            m_tabWidget->setCurrentIndex(i);
+        if (editor && editor->document()->isModified())
+            unsaved.append({i, editor});
+    }
+
+    if (!unsaved.isEmpty()) {
+        // Ask about each file, defer actual saves until all confirmed
+        for (const auto &u : unsaved) {
+            m_tabWidget->setCurrentIndex(u.index);
             QMessageBox::StandardButton ret =
                 QMessageBox::warning(this, "Unsaved Changes",
                                      QString("'%1' has been modified.\n"
                                              "Do you want to save your changes?")
-                                     .arg(QFileInfo(editor->fileName()).fileName()),
+                                     .arg(QFileInfo(u.editor->fileName()).fileName()),
                                      QMessageBox::Save | QMessageBox::Discard
                                      | QMessageBox::Cancel);
             if (ret == QMessageBox::Save)
-                saveEditor(editor);
+                toSave.append(u.editor);
             else if (ret == QMessageBox::Cancel) {
                 event->ignore();
                 return;
             }
+            // Discard → skip
         }
+        // All confirmed — now commit saves
+        for (auto *ed : toSave)
+            saveEditor(ed);
     }
 
     saveSettings();

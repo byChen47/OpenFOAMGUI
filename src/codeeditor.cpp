@@ -456,6 +456,9 @@ void CodeEditor::setupCompleter()
         "QAbstractItemView::item { padding: 3px 8px; }"
         "QAbstractItemView::item:selected { background: #0078D7; color: white; }");
 
+    m_completionModel = new QStringListModel(m_completer);
+    m_completer->setModel(m_completionModel);
+
     connect(m_completer, QOverload<const QString &>::of(&QCompleter::activated),
             this, &CodeEditor::insertCompletion);
 }
@@ -711,7 +714,7 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
                     // Prefix WITHOUT delimiter: just the identifier (e.g. "iostre")
                     // Model has full headers with brackets (e.g. "<iostream>")
                     QString typed = line.mid(delimPos + 1, pos - delimPos - 1).trimmed();
-                    m_completer->setModel(new QStringListModel(headerFiles(), m_completer));
+                    m_completionModel->setStringList(headerFiles());
                     m_completer->setCompletionPrefix(typed);
                     if (m_completer->completionCount() > 0) {
                         QRect cr = cursorRect();
@@ -726,8 +729,7 @@ void CodeEditor::keyPressEvent(QKeyEvent *e)
 
     // ── Normal keyword completion ──
     if (m_completer->completionPrefix() != prefix) {
-        QStringList words = completionWords();
-        m_completer->setModel(new QStringListModel(words, m_completer));
+        m_completionModel->setStringList(completionWords());
         m_completer->setCompletionPrefix(prefix);
     } else {
         m_completer->setCompletionPrefix(prefix);
@@ -799,6 +801,58 @@ void CodeEditor::highlightCurrentLine()
         selection.cursor = textCursor();
         selection.cursor.clearSelection();
         extras.append(selection);
+    }
+
+    // Bracket matching — check char before / at cursor
+    QTextCursor tc = textCursor();
+    if (!tc.hasSelection() && tc.atBlockEnd() == false) {
+        // Check char before cursor and at cursor
+        struct { int pos; QString text; } checks[] = {
+            {tc.position() - 1, tc.block().text().mid(tc.positionInBlock() - 1, 1)},
+            {tc.position(), tc.block().text().mid(tc.positionInBlock(), 1)},
+        };
+        for (const auto &chk : checks) {
+            QChar c = chk.text.isEmpty() ? QChar() : chk.text[0];
+            QChar open, close;
+            if (c == '{' || c == '}')      { open = '{'; close = '}'; }
+            else if (c == '(' || c == ')') { open = '('; close = ')'; }
+            else if (c == '[' || c == ']') { open = '['; close = ']'; }
+            else continue;
+
+            bool isOpen = (c == open);
+            int depth = 1;
+
+            QTextCursor finder(document());
+            finder.setPosition(chk.pos);
+            QTextCursor match;
+            while (true) {
+                if (isOpen) {
+                    if (!finder.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor))
+                        break;
+                } else {
+                    if (!finder.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor))
+                        break;
+                }
+                QChar f = document()->characterAt(finder.selectionEnd() - 1);
+                if (isOpen) { if (f == open) depth++; if (f == close) depth--; }
+                else        { if (f == close) depth++; if (f == open) depth--; }
+                if (depth == 0) { match = finder; break; }
+            }
+            if (match.isNull()) continue;
+
+            QTextEdit::ExtraSelection sel;
+            sel.format.setBackground(QColor(180, 220, 255));
+            sel.cursor = tc; sel.cursor.clearSelection();
+            sel.cursor.setPosition(chk.pos);
+            sel.cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+            extras.append(sel);
+
+            QTextEdit::ExtraSelection sel2;
+            sel2.format.setBackground(QColor(180, 220, 255));
+            sel2.cursor = match;
+            extras.append(sel2);
+            break;
+        }
     }
 
     setExtraSelections(extras);

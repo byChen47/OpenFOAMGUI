@@ -460,7 +460,7 @@ QString SchemesPanel::buildFullConfig() const
                    "    U\n    {\n        solver          PBiCGStab;\n"
                    "        preconditioner  DILU;\n        tolerance       1e-6;\n"
                    "        relTol          0.0;\n    }\n"
-                   "    \"(k|epsilon|omega).*\"\n    {\n"
+                   "    \"(k|epsilon|omega|nut|nuTilda|T|alphat).*\"\n    {\n"
                    "        solver          PBiCGStab;\n"
                    "        preconditioner  DILU;\n        tolerance       1e-6;\n"
                    "        relTol          0.0;\n    }\n}\n\n";

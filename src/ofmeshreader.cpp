@@ -42,9 +42,9 @@ bool OFMeshReader::readPoints(const QString &filePath, QVector<QVector3D> &point
     while (it.hasNext()) {
         auto m = it.next();
         points.append(QVector3D(
-            m.captured(1).toFloat(),
-            m.captured(2).toFloat(),
-            m.captured(3).toFloat()));
+            m.captured(1).toDouble(),
+            m.captured(2).toDouble(),
+            m.captured(3).toDouble()));
     }
     if (points.isEmpty()) {
         m_error = "No points found in: " + filePath; return false;
@@ -163,6 +163,56 @@ QVector3D OFMeshReader::patchColor(const QString &patchType)
     return QVector3D(qHash(t) % 200 / 255.0f + 0.2f,
                      qHash(t + "g") % 200 / 255.0f + 0.2f,
                      qHash(t + "b") % 200 / 255.0f + 0.2f);
+}
+
+// ── Read field file (e.g. U, p, k, nut) ──
+bool OFMeshReader::readField(const QString &fieldPath, OFMeshData &mesh)
+{
+    QFile f(fieldPath);
+    if (!f.open(QFile::ReadOnly | QFile::Text)) {
+        m_error = "Cannot open field: " + fieldPath; return false;
+    }
+    QString content = QString::fromUtf8(f.readAll());
+    f.close();
+
+    mesh.fieldName = QFileInfo(fieldPath).fileName();
+    mesh.cellValues.clear();
+
+    // Try nonuniform list first
+    QRegularExpression nonunif(R"(nonuniform\s+List\w*\s+(\d+)\s*\(([^)]*)\))");
+    QRegularExpression unif(R"(uniform\s+\(?\s*([-\d.e+]+))");
+    QRegularExpression unifVec(R"(uniform\s+\(([-\d.e+\s]+)\))");
+
+    auto nm = nonunif.match(content);
+    if (nm.hasMatch()) {
+        QString vals = nm.captured(2);
+        QTextStream ts(&vals);
+        double v;
+        while (!ts.atEnd()) {
+            ts >> v;
+            if (!ts.status()) break;
+            mesh.cellValues.append(v);
+        }
+        return true;
+    }
+
+    auto um = unif.match(content);
+    if (um.hasMatch()) {
+        double v = um.captured(1).toDouble();
+        mesh.cellValues.append(v); // single uniform value
+        return true;
+    }
+
+    auto uvm = unifVec.match(content);
+    if (uvm.hasMatch()) {
+        QStringList parts = uvm.captured(1).split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        for (const auto &p : parts)
+            mesh.cellValues.append(p.toDouble());
+        return true;
+    }
+
+    m_error = "Could not parse field data in: " + fieldPath;
+    return false;
 }
 
 // ── Compute bounding box ──

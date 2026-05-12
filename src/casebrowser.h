@@ -6,6 +6,7 @@
 #include <QLineEdit>
 #include <QLabel>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
 
 class CaseBrowser : public QWidget
 {
@@ -50,10 +51,12 @@ private:
     QTreeWidgetItem* createFileItem(const QFileInfo &fi, QTreeWidgetItem *parent);
     QTreeWidgetItem* findItemByPath(const QString &path);
 
-    QTreeWidget   *m_tree;
-    QLineEdit     *m_filterEdit;
-    QLabel        *m_caseLabel;
-    QStringList    m_cases;
+    QTreeWidget        *m_tree;
+    QLineEdit          *m_filterEdit;
+    QLabel             *m_caseLabel;
+    QStringList         m_cases;
+    QFileSystemWatcher *m_watcher = nullptr;
+    QMap<QString, QStringList> m_knownDirs; // casePath → subdir names, for change detection
 };
 
 #endif // CASEBROWSER_H
