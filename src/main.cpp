@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
     app.setApplicationName("OpenFOAM GUI");
-    app.setApplicationVersion("2.0.3");
+    app.setApplicationVersion("2.0.5");
     app.setOrganizationName("OpenFOAMGUI");
     app.setWindowIcon(QIcon(":/bychen.ico"));
 

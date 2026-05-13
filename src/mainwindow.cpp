@@ -1820,7 +1820,7 @@ void MainWindow::onRefreshCase()
 void MainWindow::onAbout()
 {
     QMessageBox::about(this, "About OpenFOAM GUI",
-                       "<h3>OpenFOAM GUI v2.0.3  byCHen</h3>"
+                       "<h3>OpenFOAM GUI v2.0.5  by CHen</h3>"
                        "<p>A CFD case manager for OpenFOAM v2012 to v2512 </p>"
                        "<p>Open, browse, edit, and save OpenFOAM case files "
                        "with syntax highlighting and case structure awareness.</p>"
