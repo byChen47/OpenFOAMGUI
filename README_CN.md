@@ -66,12 +66,36 @@
 - **g++**（可选，Run C++；MinGW 自带）
 - **Ghostscript**（可选，EPS；TeX Live 自带）
 
-## 编译
+## 安装
+
+### Windows
+
+从 [Releases](https://github.com/byChen47/OpenFOAMGUI/releases) 下载 `OpenFOAMGUI.exe`，绿色免安装，直接运行。
+
+### Linux (.deb)
+
+从 [Releases](https://github.com/byChen47/OpenFOAMGUI/releases/tag/OpenFOAMGUI_V2.0.5) 下载 `openfoamgui_2.0.5_all.deb` 并安装：
 
 ```bash
+sudo dpkg -i openfoamgui_2.0.5_all.deb
+sudo openfoamgui-build   # 一次性编译
+openfoamgui              # 启动
+```
+
+依赖：Qt 6.2+（`qt6-base-dev`）或 Qt 5.15+（`qtbase5-dev`）。
+
+## 从源码编译
+
+```bash
+# Windows (MinGW)
 qmake OpenFOAMGUI.pro
 mingw32-make -f Makefile.Release
-# 输出：release/OpenFOAMGUI.exe（无控制台窗口）
+# 输出：release/OpenFOAMGUI.exe
+
+# Linux
+qmake6 OpenFOAMGUI.pro   # 或 qmake
+make -f Makefile.Release -j$(nproc)
+# 输出：release/OpenFOAMGUI
 ```
 
 **Qt 模块**：Core, GUI, Widgets, Svg, SvgWidgets · **标准**：C++17

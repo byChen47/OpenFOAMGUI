@@ -66,12 +66,36 @@ A professional CFD case manager and editor for OpenFOAM, built with Qt 6.10.2.
 - **g++** (optional, for Run C++; MinGW includes it)
 - **Ghostscript** (optional, for EPS; TeX Live includes it)
 
-## Build
+## Install
+
+### Windows
+
+Download `OpenFOAMGUI.exe` from [Releases](https://github.com/byChen47/OpenFOAMGUI/releases) — portable, no installation required.
+
+### Linux (.deb)
+
+Download `openfoamgui_2.0.5_all.deb` from [Releases](https://github.com/byChen47/OpenFOAMGUI/releases/tag/OpenFOAMGUI_V2.0.5) and install:
 
 ```bash
+sudo dpkg -i openfoamgui_2.0.5_all.deb
+sudo openfoamgui-build   # one-time compile
+openfoamgui              # launch
+```
+
+Requirements: Qt 6.2+ (`qt6-base-dev`) or Qt 5.15+ (`qtbase5-dev`).
+
+## Build from Source
+
+```bash
+# Windows (MinGW)
 qmake OpenFOAMGUI.pro
 mingw32-make -f Makefile.Release
-# Output: release/OpenFOAMGUI.exe (no console window)
+# Output: release/OpenFOAMGUI.exe
+
+# Linux
+qmake6 OpenFOAMGUI.pro   # or qmake
+make -f Makefile.Release -j$(nproc)
+# Output: release/OpenFOAMGUI
 ```
 
 **Qt modules**: Core, GUI, Widgets, Svg, SvgWidgets · **Standard**: C++17
