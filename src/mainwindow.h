@@ -57,6 +57,8 @@ private slots:
     void onOpenTerminal();
     void onCloseCase();
     void onSyncBoundaries();
+    void onYPlusCalc();
+    void onTurbCalc();
     void onRunPython();
     void onConfigurePython();
     void onRunCpp();
@@ -148,6 +150,8 @@ private:
     QAction *m_bcPanelAction;
     QAction *m_terminalAction;
     QAction *m_syncBoundariesAction;
+    QAction *m_yPlusCalcAction;
+    QAction *m_turbCalcAction;
     QAction *m_aboutAction;
     QAction *m_themeAction;
     QAction *m_recentCaseActions[10];

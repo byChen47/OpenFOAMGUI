@@ -35,6 +35,7 @@ public:
     void loadFile(const QString &filePath, const QString &content);
     void setEditor(CodeEditor *editor) { m_editor = editor; }
     void clear();
+    void onCalcBL(); // BL calculator (public for toolbar access)
 
 signals:
     void insertSnippet(const QString &snippet);

@@ -410,7 +410,7 @@ static QStringList ofKeywords() { return {
     "mirrorMesh","transformPoints","surfaceTransformPoints",
     "topoSet","subsetMesh","refineMesh","stitchMesh","splitMeshRegions",
     "mapFields","setFields","sample","postProcess",
-    "paraFoam","touch","collapseEdges","splitMesh",
+    "paraFoam","touch","overWrite","collapseEdges","splitMesh",
     "surfaceFind","surfaceSplitByPatch","surfaceRedistributePar",
 };}
 

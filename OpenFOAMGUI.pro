@@ -25,7 +25,7 @@ SOURCES += \
     src/schemespanel.cpp \
     src/snappypanel.cpp \
     src/dictpanel.cpp \
-    src/ofmeshreader.cpp
+    src/ofmeshreader.cpp \
 
 HEADERS += \
     src/mainwindow.h \

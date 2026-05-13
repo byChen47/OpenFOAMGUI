@@ -259,6 +259,14 @@ void MainWindow::createActions()
                                          "Sync &Boundaries", this);
     m_syncBoundariesAction->setStatusTip("Sync blockMeshDict boundary names to all 0/ field files boundaryField");
 
+    m_yPlusCalcAction = new QAction(makeIcon(QColor("#8E44AD"), "Y+"),
+                                    "Y+ &Calculator", this);
+    m_yPlusCalcAction->setStatusTip("Calculate first layer thickness from y+ for snappyHexMesh");
+
+    m_turbCalcAction = new QAction(makeIcon(QColor("#388E3C"), "kε"),
+                                   "&Turbulence Calculator", this);
+    m_turbCalcAction->setStatusTip("Calculate k/epsilon/omega/nut for 0/ field files");
+
     m_aboutAction = new QAction("&About OpenFOAM GUI", this);
     m_aboutAction->setStatusTip("About this application");
 
@@ -312,30 +320,34 @@ void MainWindow::createMenus()
 
     // View menu
     m_viewMenu = menuBar()->addMenu("&View");
-    // Toolbar visibility toggles
-    auto addViewToggle = [&](const QString &name, QAction *target, bool shown) {
-        auto *act = m_viewMenu->addAction(name);
+    // Toolbar visibility toggles — grouped in sub-menu
+    auto addViewToggle = [&](QMenu *menu, const QString &name, QAction *target, bool shown) {
+        auto *act = menu->addAction(name);
         act->setCheckable(true);
         act->setChecked(shown);
         if (!shown) {
-            // Not in toolbar yet — add/remove on toggle
             connect(act, &QAction::toggled, [this, target](bool on) {
                 if (on) m_mainToolBar->addAction(target);
                 else    m_mainToolBar->removeAction(target);
             });
         } else {
-            // Already in toolbar — just show/hide
             connect(act, &QAction::toggled, [target](bool on) { target->setVisible(on); });
         }
     };
-    addViewToggle("Show New File",         m_newFileAction, false);
-    addViewToggle("Show New Folder",       m_newFolderAction, false);
-    addViewToggle("Show BC Panel",         m_bcPanelAction, true);
-    addViewToggle("Show Terminal",         m_terminalAction, true);
-    addViewToggle("Show Run Python",       m_pythonAction, true);
-    addViewToggle("Show Run C++",          m_cppAction, true);
-    addViewToggle("Show Sync Boundaries",  m_syncBoundariesAction, true);
-    addViewToggle("Show ParaView",         m_paraviewAction, true);
+    auto *toolbarMenu = m_viewMenu->addMenu("Toolbar Buttons");
+    addViewToggle(toolbarMenu, "New File",         m_newFileAction, false);
+    addViewToggle(toolbarMenu, "New Folder",       m_newFolderAction, false);
+    addViewToggle(toolbarMenu, "Delete",            m_deleteAction, false);
+    addViewToggle(toolbarMenu, "Y+ Calculator",    m_yPlusCalcAction, false);
+    addViewToggle(toolbarMenu, "Turbulence Calc",  m_turbCalcAction, false);
+    addViewToggle(toolbarMenu, "Run Python",       m_pythonAction, false);
+    addViewToggle(toolbarMenu, "Run C++",          m_cppAction, false);
+    addViewToggle(toolbarMenu, "Terminal",         m_terminalAction, false);
+    addViewToggle(toolbarMenu, "Sync Boundaries",  m_syncBoundariesAction, false);
+    // Always-shown toggles
+    addViewToggle(toolbarMenu, "BC Panel",         m_bcPanelAction, true);
+    addViewToggle(toolbarMenu, "ParaView",         m_paraviewAction, true);
+
     m_viewMenu->addSeparator();
     m_themeAction = m_viewMenu->addAction("Dark &Theme");
     m_themeAction->setCheckable(true);
@@ -348,27 +360,19 @@ void MainWindow::createMenus()
     m_viewMenu->addSeparator();
     QAction *resetLayout = m_viewMenu->addAction("Reset Default &Layout");
     connect(resetLayout, &QAction::triggered, [this]() {
-        // Restore toolbar buttons to their default positions
         m_mainToolBar->clear();
         m_mainToolBar->addAction(m_openCaseAction);
         m_mainToolBar->addAction(m_closeCaseAction);
         m_mainToolBar->addSeparator();
         m_mainToolBar->addAction(m_saveAction);
         m_mainToolBar->addSeparator();
-        m_mainToolBar->addAction(m_deleteAction);
-        m_mainToolBar->addSeparator();
         m_mainToolBar->addAction(m_bcPanelAction);
-        m_mainToolBar->addAction(m_terminalAction);
-        m_mainToolBar->addAction(m_pythonAction);
-        m_mainToolBar->addAction(m_cppAction);
-        m_mainToolBar->addAction(m_syncBoundariesAction);
         m_mainToolBar->addAction(m_paraviewAction);
-        // Re-apply View toggle state (if New File/Folder were checked, add them)
         statusBar()->showMessage("Layout reset to default.", 3000);
     });
     m_viewMenu->addSeparator();
 
-    // Case menu — case-level operations (open, close, create, clean, sync, tools)
+    // Case menu
     m_caseMenu = menuBar()->addMenu("&Case");
     m_caseMenu->addAction(m_openCaseAction);
     m_caseMenu->addAction(m_closeCaseAction);
@@ -378,6 +382,10 @@ void MainWindow::createMenus()
     m_caseMenu->addAction(m_deleteAction);
     m_caseMenu->addAction(m_cleanTimeAction);
     m_caseMenu->addSeparator();
+    m_caseMenu->addAction(m_syncBoundariesAction);
+    m_caseMenu->addAction(m_yPlusCalcAction);
+    m_caseMenu->addAction(m_turbCalcAction);
+    m_caseMenu->addSeparator();
     m_caseMenu->addAction(m_pythonAction);
     m_caseMenu->addAction(m_cppAction);
     m_caseMenu->addAction(m_paraviewAction);
@@ -385,6 +393,7 @@ void MainWindow::createMenus()
     m_caseMenu->addAction(m_pythonConfigAction);
     m_caseMenu->addAction(m_cppConfigAction);
     m_caseMenu->addSeparator();
+    m_caseMenu->addAction(m_terminalAction);
     m_caseMenu->addAction(m_refreshAction);
 
     // Help menu
@@ -418,6 +427,8 @@ void MainWindow::createToolBar()
     m_pythonAction->setObjectName("tbRunPython");
     m_cppAction->setObjectName("tbRunCpp");
     m_syncBoundariesAction->setObjectName("tbSyncBoundaries");
+    m_yPlusCalcAction->setObjectName("tbYPlusCalc");
+    m_turbCalcAction->setObjectName("tbTurbCalc");
     m_paraviewAction->setObjectName("tbParaView");
     m_newFileAction->setObjectName("tbNewFile");
     m_newFolderAction->setObjectName("tbNewFolder");
@@ -427,13 +438,7 @@ void MainWindow::createToolBar()
     m_mainToolBar->addSeparator();
     m_mainToolBar->addAction(m_saveAction);
     m_mainToolBar->addSeparator();
-    m_mainToolBar->addAction(m_deleteAction);
-    m_mainToolBar->addSeparator();
     m_mainToolBar->addAction(m_bcPanelAction);
-    m_mainToolBar->addAction(m_terminalAction);
-    m_mainToolBar->addAction(m_pythonAction);
-    m_mainToolBar->addAction(m_cppAction);
-    m_mainToolBar->addAction(m_syncBoundariesAction);
     m_mainToolBar->addAction(m_paraviewAction);
 
     // Right-click toolbar → Customize for drag-to-reorder
@@ -508,9 +513,15 @@ void MainWindow::createDockWidgets()
     m_viewMenu->addAction(m_caseBrowserDock->toggleViewAction());
     m_viewMenu->addAction(m_bcPanelDock->toggleViewAction());
 
-    // Keep toolbar button in sync with dock close/open
-    connect(m_bcPanelDock, &QDockWidget::visibilityChanged, [this](bool visible) {
-        m_bcPanelAction->setChecked(visible);
+    // ── BC panel toggle ──
+    connect(m_bcPanelAction, &QAction::triggered, [this]() {
+        if (m_bcPanelDock->isVisible() && m_rightPanelStack->currentIndex() == 0)
+            m_bcPanelDock->hide();
+        else {
+            m_bcPanelDock->show(); m_bcPanelDock->raise();
+            m_rightPanelStack->setCurrentIndex(0);
+            m_bcPanelDock->setWindowTitle("Boundary Conditions");
+        }
     });
 }
 
@@ -572,6 +583,8 @@ void MainWindow::setupConnections()
     connect(m_deleteAction, &QAction::triggered, this, &MainWindow::onDeleteSelected);
     connect(m_cleanTimeAction, &QAction::triggered, this, &MainWindow::onCleanTimeDirs);
     connect(m_syncBoundariesAction, &QAction::triggered, this, &MainWindow::onSyncBoundaries);
+    connect(m_yPlusCalcAction, &QAction::triggered, this, &MainWindow::onYPlusCalc);
+    connect(m_turbCalcAction, &QAction::triggered, this, &MainWindow::onTurbCalc);
     connect(m_pythonAction, &QAction::triggered, this, &MainWindow::onRunPython);
     connect(m_cppAction, &QAction::triggered, this, &MainWindow::onRunCpp);
     connect(m_paraviewAction, &QAction::triggered, this, &MainWindow::onParaView);
@@ -875,50 +888,35 @@ void MainWindow::routeFileToPanel(const QString &fileName, const QString &conten
 
     QFileInfo fi(fileName);
     QString base = fi.fileName();
+    int targetIndex = 0;
+    QString targetTitle = "Boundary Conditions";
 
-    // Turbulence
     if (base == "turbulenceProperties") {
         m_turbulencePanel->loadTurbulenceFile(fileName, content);
-        m_rightPanelStack->setCurrentIndex(1);
-        m_bcPanelDock->setWindowTitle("Turbulence Model");
-        return;
-    }
-    // Schemes / solvers
-    if (base == "fvSchemes" || base == "fvSolution") {
+        targetIndex = 1; targetTitle = "Turbulence Model";
+    } else if (base == "fvSchemes" || base == "fvSolution") {
         m_schemesPanel->loadFile(fileName, content);
-        m_rightPanelStack->setCurrentIndex(2);
-        m_bcPanelDock->setWindowTitle("Discretisation & Solvers");
-        return;
-    }
-    // snappyHexMesh
-    if (base == "snappyHexMeshDict") {
+        targetIndex = 2; targetTitle = "Discretisation & Solvers";
+    } else if (base == "snappyHexMeshDict") {
         m_snappyPanel->loadFile(fileName, content);
-        m_rightPanelStack->setCurrentIndex(3);
-        m_bcPanelDock->setWindowTitle("snappyHexMesh");
-        return;
-    }
-    // Dict Panel — all known dictionary files
-    static const QSet<QString> dictFiles = {
-        "blockMeshDict","topoSetDict","dynamicMeshDict","controlDict",
+        targetIndex = 3; targetTitle = "snappyHexMesh";
+    } else if (QSet<QString>{"blockMeshDict","topoSetDict","dynamicMeshDict","controlDict",
         "decomposeParDict","refineMeshDict","transportProperties",
         "thermophysicalProperties","radiationProperties","combustionProperties",
         "setFieldsDict","sampleDict","surfaceFeatureExtractDict",
         "mapFieldsDict","createPatchDict","extrudeMeshDict",
         "forces","forceCoeffs","fvConstraints",
         "mirrorMeshDict","renumberMeshDict","transformPointsDict",
-        "waveProperties","waveProperties.input"
-    };
-    if (dictFiles.contains(base)) {
+        "waveProperties"}.contains(base)) {
         m_dictPanel->loadFile(fileName, content);
-        m_rightPanelStack->setCurrentIndex(4);
-        m_bcPanelDock->setWindowTitle(base);
-        return;
+        targetIndex = 4; targetTitle = base;
+    } else {
+        m_bcPanel->loadFieldFile(fileName, content);
+        targetIndex = 0; targetTitle = "Boundary Conditions";
     }
 
-    // Default: treat as field file with BC panel
-    m_bcPanel->loadFieldFile(fileName, content);
-    m_rightPanelStack->setCurrentIndex(0);
-    m_bcPanelDock->setWindowTitle("Boundary Conditions");
+    m_rightPanelStack->setCurrentIndex(targetIndex);
+    m_bcPanelDock->setWindowTitle(targetTitle);
 }
 
 void MainWindow::onSaveFile()
@@ -1301,6 +1299,16 @@ void MainWindow::onCleanTimeDirs()
 // ────────────────────────────────────────────────────────────────────
 // Sync blockMeshDict boundary names → 0/ field files boundaryField
 // ────────────────────────────────────────────────────────────────────
+
+void MainWindow::onYPlusCalc()
+{
+    m_snappyPanel->onCalcBL();
+}
+
+void MainWindow::onTurbCalc()
+{
+    m_turbulencePanel->onCalcTurb();
+}
 
 void MainWindow::onSyncBoundaries()
 {

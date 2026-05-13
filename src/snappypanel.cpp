@@ -13,6 +13,11 @@
 #include <QHeaderView>
 #include <QMenu>
 #include <QScrollBar>
+#include <QDialog>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QComboBox>
+#include <QtMath>
 
 SnappyPanel::SnappyPanel(QWidget *parent) : QWidget(parent) { setupUI(); initData(); }
 
@@ -413,4 +418,298 @@ void SnappyPanel::onSectionContextMenu(const QPoint &pos)
         QApplication::clipboard()->setText(block);
     });
     menu.exec(m_sectionList->mapToGlobal(pos));
+}
+
+// ── Boundary Layer Calculator (y+ → addLayersControls) ──
+void SnappyPanel::onCalcBL()
+{
+    auto *dlg = new QDialog(nullptr);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->setWindowTitle("BL Calculator — y+ → addLayersControls");
+    dlg->resize(450, 420);
+    auto *l = new QVBoxLayout(dlg);
+
+    auto *form = new QFormLayout();
+    auto *yPlus = new QDoubleSpinBox(); yPlus->setRange(0.1, 5000); yPlus->setValue(30);
+    yPlus->setDecimals(1); yPlus->setSuffix(" (1 = laminar-like, 30 = log-layer, 100+ = wall-func)");
+    form->addRow("Target y+:", yPlus);
+
+    auto *Uref = new QDoubleSpinBox(); Uref->setRange(0.01, 500); Uref->setValue(10);
+    Uref->setDecimals(2); Uref->setSuffix(" m/s (freestream velocity)");
+    form->addRow("Freestream U:", Uref);
+
+    auto *Lref = new QDoubleSpinBox(); Lref->setRange(0.001, 100); Lref->setValue(1);
+    Lref->setDecimals(3); Lref->setSuffix(" m (plate length or chord)");
+    form->addRow("Reference L:", Lref);
+
+    auto *rhoVal = new QDoubleSpinBox(); rhoVal->setRange(0.01, 2000); rhoVal->setValue(1.225);
+    rhoVal->setDecimals(3); rhoVal->setSuffix(" kg/m³ (air=1.225, water=998)");
+    form->addRow("Density ρ:", rhoVal);
+
+    auto *nuVal = new QDoubleSpinBox(); nuVal->setRange(1e-7, 1e-3); nuVal->setValue(1.5e-5);
+    nuVal->setDecimals(8); nuVal->setSuffix(" m²/s (air=1.5e-5, water=1e-6)");
+    nuVal->setSingleStep(1e-6);
+    form->addRow("Kinematic viscosity ν:", nuVal);
+
+    auto *nLayers = new QSpinBox(); nLayers->setRange(1, 50); nLayers->setValue(5);
+    nLayers->setSuffix(" layers");
+    form->addRow("Number of layers:", nLayers);
+
+    auto *expRatio = new QDoubleSpinBox(); expRatio->setRange(1.0, 2.0); expRatio->setValue(1.2);
+    expRatio->setDecimals(2); expRatio->setSingleStep(0.05);
+    expRatio->setSuffix(" (1.1-1.3 recommended)");
+    form->addRow("Expansion ratio:", expRatio);
+
+    auto *resultLbl = new QLabel();
+    resultLbl->setStyleSheet("QLabel { background: #F5F0F5; padding: 8px; border-radius: 3px; "
+                             "font-family: Consolas; font-size: 10px; }");
+    resultLbl->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    l->addLayout(form);
+    l->addWidget(resultLbl);
+
+    // ── Theory / derivation — opens in separate dialog ──
+    auto *showTheoryBtn = new QPushButton("📖 Show Derivation & Physics...");
+    showTheoryBtn->setStyleSheet("QPushButton { text-align:left; border:1px solid #E0D0F0; "
+                                 "background:#FAF5FF; color:#8E44AD; font-size:10px; "
+                                 "font-weight:bold; padding:3px 8px; border-radius:3px; }"
+                                 "QPushButton:hover { background:#F0E0FF; }");
+    l->addWidget(showTheoryBtn);
+
+    connect(showTheoryBtn, &QPushButton::clicked, [this]() {
+        QDialog *td = new QDialog(nullptr); // independent window
+        td->setWindowTitle("BL Derivation & Physics");
+        td->resize(750, 620);
+        td->setMinimumSize(500, 400);
+        td->setAttribute(Qt::WA_DeleteOnClose);
+        auto *tl = new QVBoxLayout(td);
+        tl->setContentsMargins(0, 0, 0, 0);
+
+        auto *te = new QTextEdit();
+        te->setReadOnly(true);
+        te->setFont(QFont("Segoe UI", 10));
+        te->setStyleSheet("QTextEdit { background:#FFFFFF; border:1px solid #E0E0E0; "
+                          "border-radius:4px; padding:12px; color:#333; line-height:1.6; }");
+        te->setHtml(
+            "<h2 style='color:#8E44AD;'>Calculation Chain — y⁺ → firstLayerThickness</h2>"
+            "<p><i>Prandtl–von Kármán turbulent boundary layer theory</i></p>"
+
+            "<h3 style='color:#555;'>Step 1 — Reynolds Number</h3>"
+            "<p><b>Re = U·L / ν</b></p>"
+            "<p>Ratio of inertial to viscous forces. Determines laminar (Re < 5×10⁵) "
+            "or turbulent (Re > 5×10⁵) boundary layer state.</p>"
+
+            "<h3 style='color:#555;'>Step 2 — Skin Friction Coefficient</h3>"
+            "<p><b>Cf = 0.027 / Re^(1/7)</b></p>"
+            "<p><b>Origin:</b> The 1/7th power-law velocity profile <i>u/U = (y/δ)^(1/7)</i> "
+            "was discovered experimentally by Prandtl and von Kármán (1920s). "
+            "It fits turbulent flat-plate data well for 5×10⁵ < Re < 10⁷.</p>"
+            "<p><b>Derivation:</b></p>"
+            "<ol>"
+            "<li>Insert <i>u/U = (y/δ)^(1/7)</i> into Kármán momentum integral: "
+            "<i>C<sub>f</sub>/2 = dθ/dx</i></li>"
+            "<li>Momentum thickness: <i>θ = ∫₀ᵟ(u/U)(1−u/U)dy = (7/72)δ</i></li>"
+            "<li>Wall shear from Blasius pipe-flow analogy: "
+            "<i>C<sub>f</sub>/2 = 0.0225·Re<sub>δ</sub><sup>−1/4</sup></i></li>"
+            "<li>Turbulent BL growth: <i>δ/x = 0.37·Re<sub>x</sub><sup>−1/5</sup></i></li>"
+            "<li>Eliminate δ → <i>Cf = 0.0276·Re<sub>x</sub><sup>−1/7</sup></i></li>"
+            "</ol>"
+            "<p><b>Note:</b> The exponent 1/7 comes directly from the velocity profile assumption. "
+            "Alternative: Cf = 0.0592/Re^(1/5) (Prandtl-Schlichting, wider Re range).</p>"
+
+            "<h3 style='color:#555;'>Step 3 — Wall Shear Stress</h3>"
+            "<p><b>τ<sub>w</sub> = ½ ρ U² · Cf</b></p>"
+            "<p>This is the <b>definition</b> of Cf, not an empirical formula:</p>"
+            "<p style='background:#F5F0FF; padding:8px;'><i>"
+            "C<sub>f</sub> ≡ τ<sub>w</sub> / (½ρU²) → τ<sub>w</sub> = ½ρU²·C<sub>f</sub></i></p>"
+            "<p>τ<sub>w</sub> [Pa] is the force per unit area the fluid exerts parallel to the wall. "
+            "Cf ≈ 0.003–0.005 for typical turbulent flows.</p>"
+
+            "<h3 style='color:#555;'>Step 4 — Friction Velocity</h3>"
+            "<p><b>u<sub>τ</sub> = √(τ<sub>w</sub> / ρ)</b></p>"
+            "<p>Definition of the <b>friction velocity</b> — the characteristic velocity "
+            "scale of near-wall turbulence. Named because it has dimensions of velocity "
+            "but is derived from wall shear, not from the mean flow.</p>"
+            "<p>Used to non-dimensionalise near-wall flow: <i>y⁺ = y·u<sub>τ</sub>/ν, "
+            "u⁺ = u/u<sub>τ</sub></i></p>"
+
+            "<h3 style='color:#555;'>Step 5 — First Layer Thickness</h3>"
+            "<p><b>y₁ = y⁺ · ν / u<sub>τ</sub></b></p>"
+            "<p>Rearranged from the wall scaling law <i>y⁺ = y·u<sub>τ</sub>/ν</i>. "
+            "Given a target y⁺ (user input), computes the dimensional wall distance "
+            "needed for the first mesh cell center.</p>"
+            "<p><b>y⁺ Guidelines:</b></p>"
+            "<table border='1' cellpadding='4' cellspacing='0' style='border-collapse:collapse; font-size:9pt;'>"
+            "<tr style='background:#F0E0FF;'><th>y⁺ Range</th><th>Wall Treatment</th><th>Solver</th></tr>"
+            "<tr><td>y⁺ ≤ 1</td><td>Resolved to viscous sublayer (no wall functions)</td>"
+            "<td>kOmegaSST, SpalartAllmaras (low-Re)</td></tr>"
+            "<tr><td>y⁺ ≈ 30</td><td>Log-layer first cell (standard wall functions)</td>"
+            "<td>kEpsilon, kOmega (high-Re)</td></tr>"
+            "<tr><td>y⁺ 1–30</td><td>Buffer layer — avoid! Neither fully resolved nor fully modelled</td>"
+            "<td>—</td></tr>"
+            "<tr><td>y⁺ > 100</td><td>Coarse wall functions</td><td>kEpsilon (rough walls)</td></tr>"
+            "</table>"
+
+            "<h3 style='color:#555;'>Geometric Series (Multi-layer)</h3>"
+            "<p>For <i>n</i> layers with expansion ratio <i>r</i>:</p>"
+            "<p>Final layer: <i>y<sub>n</sub> = y₁ · r<sup>n−1</sup></i></p>"
+            "<p>Total thickness: <i>Y = y₁ · (r<sup>n</sup> − 1) / (r − 1)</i></p>"
+
+            "<h3 style='color:#555;'>Validation Check</h3>"
+            "<p><b>δ<sub>99</sub> = 0.37·L / Re<sup>1/5</sup></b></p>"
+            "<p>Turbulent BL nominal thickness (where u = 0.99U). "
+            "Total layer thickness should be ~0.1–0.3 × δ<sub>99</sub>.</p>"
+
+            "<hr>"
+            "<h3 style='color:#555;'>Mapping to snappyHexMesh</h3>"
+            "<table border='1' cellpadding='4' cellspacing='0' style='border-collapse:collapse; font-size:9pt;'>"
+            "<tr style='background:#F0E0FF;'><th>Parameter</th><th>Value</th></tr>"
+            "<tr><td>relativeSizes</td><td>false (use absolute dimensions)</td></tr>"
+            "<tr><td>firstLayerThickness</td><td>= y₁ from Step 5</td></tr>"
+            "<tr><td>expansionRatio</td><td>= r (user input, typically 1.1–1.3)</td></tr>"
+            "<tr><td>finalLayerThickness</td><td>= y₁ × r^(n−1)</td></tr>"
+            "<tr><td>minThickness</td><td>= y₁ × 0.1 (safety margin)</td></tr>"
+            "<tr><td>nSurfaceLayers</td><td>= n (user input)</td></tr>"
+            "</table>"
+
+            "<hr>"
+            "<p style='color:#888; font-size:9pt;'><b>References:</b><br>"
+            "Schlichting, H. (1979). <i>Boundary-Layer Theory</i>, 7th ed., McGraw-Hill.<br>"
+            "White, F.M. (2006). <i>Viscous Fluid Flow</i>, 3rd ed., McGraw-Hill.<br>"
+            "Prandtl, L. (1927). Über den Reibungswiderstand strömender Luft. "
+            "<i>Ergebnisse der Aerodynamischen Versuchsanstalt zu Göttingen</i>, III.</p>"
+        );
+        tl->addWidget(te, 1);
+
+        auto *closeBtn = new QPushButton("Close");
+        closeBtn->setStyleSheet("QPushButton { padding:6px 24px; }");
+        tl->addWidget(closeBtn);
+        connect(closeBtn, &QPushButton::clicked, td, &QDialog::accept);
+
+        td->show();
+    });
+
+    auto calc = [=]() -> QString {
+        double yp = yPlus->value();
+        double U = Uref->value();
+        double L = Lref->value();
+        double nu = nuVal->value();
+        double rho = rhoVal->value();
+        double Re = U * L / nu;
+
+        // Turbulent flat-plate skin friction
+        // Cf = 0.027 / Re_x^(1/7) — valid for 5×10^5 < Re < 10^7 (1/7th power-law)
+        // Cf = 0.0592 / Re_x^(1/5) — alternative for wider Re range
+        double Cf_local = 0.027 / qPow(Re, 1.0 / 7.0);
+        double tau_w = 0.5 * rho * U * U * Cf_local;
+        double u_tau = qSqrt(tau_w / rho);
+        double y_first = yp * nu / u_tau;
+        int n = nLayers->value();
+        double r = expRatio->value();
+
+        // Geometric series: total = a * (r^n - 1) / (r - 1), final = a * r^(n-1)
+        double totalThick = (qAbs(r - 1.0) < 1e-6) ? y_first * n
+            : y_first * (qPow(r, n) - 1.0) / (r - 1.0);
+        double finalThick = y_first * qPow(r, n - 1);
+        double minThick = y_first * 0.1; // 10% of first layer
+
+        // Estimated BL thickness for validation
+        double delta99 = 0.37 * L / qPow(Re, 1.0 / 5.0);
+
+        return QString(
+            "Re_L = %1  (turbulent: %2)\n"
+            "Cf (local at x=L) = %3\n"
+            "τ_w = %4 Pa  |  u_τ = %5 m/s\n"
+            "Estimated BL thickness δ_99 ≈ %6 m\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "First  layer  = %7 m  (%8 mm)  ← target y+ = %9\n"
+            "Final  layer  = %10 m  (%11 mm)\n"
+            "Total  layers = %12 m  (%13 mm)\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "addLayersControls\n{\n"
+            "    relativeSizes false;\n"
+            "    firstLayerThickness %14;\n"
+            "    expansionRatio %15;\n"
+            "    finalLayerThickness %16;\n"
+            "    minThickness %17;\n"
+            "    nGrow 0;\n"
+            "    featureAngle 130;\n"
+            "    nLayerIter 50;\n"
+            "    nSmoothSurfaceNormals 1;\n"
+            "    nSmoothThickness 10;\n"
+            "    maxFaceThicknessRatio 0.5;\n"
+            "    layers\n"
+            "    {\n"
+            "        \"(wall|WALL.*)\"\n"
+            "        {\n"
+            "            nSurfaceLayers %18;\n"
+            "        }\n"
+            "    }\n"
+            "}\n"
+        ).arg(Re, 0, 'g', 4)
+         .arg((Re > 5e5) ? "yes" : "transitional — increase Re or U")
+         .arg(Cf_local, 0, 'g', 4)
+         .arg(tau_w, 0, 'g', 4).arg(u_tau, 0, 'g', 4)
+         .arg(delta99, 0, 'g', 4)
+         .arg(y_first, 0, 'g', 4).arg(y_first * 1000, 0, 'f', 3).arg(yp, 0, 'f', 1)
+         .arg(finalThick, 0, 'g', 4).arg(finalThick * 1000, 0, 'f', 3)
+         .arg(totalThick, 0, 'g', 4).arg(totalThick * 1000, 0, 'f', 3)
+         .arg(y_first, 0, 'g', 4).arg(r, 0, 'f', 2).arg(finalThick, 0, 'g', 4)
+         .arg(minThick, 0, 'g', 4).arg(n);
+    };
+
+    resultLbl->setText(calc());
+    connect(yPlus, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { resultLbl->setText(calc()); });
+    connect(Uref, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { resultLbl->setText(calc()); });
+    connect(Lref, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { resultLbl->setText(calc()); });
+    connect(rhoVal, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { resultLbl->setText(calc()); });
+    connect(nuVal, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { resultLbl->setText(calc()); });
+    connect(nLayers, QOverload<int>::of(&QSpinBox::valueChanged), [=]() { resultLbl->setText(calc()); });
+    connect(expRatio, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { resultLbl->setText(calc()); });
+
+    auto *btns = new QHBoxLayout();
+    btns->addStretch();
+    auto *cancel = new QPushButton("Close");
+    auto *insert = new QPushButton("Insert addLayersControls");
+    insert->setStyleSheet("QPushButton { background:#8E44AD; color:white; padding:6px 16px; "
+                          "border:none; border-radius:3px; font-weight:bold; }");
+    btns->addWidget(cancel); btns->addWidget(insert);
+    l->addLayout(btns);
+    connect(cancel, &QPushButton::clicked, dlg, &QDialog::close);
+    connect(insert, &QPushButton::clicked, dlg, [this, resultLbl, dlg]() {
+        QString newBlock = resultLbl->text();
+        int blockStart = newBlock.indexOf("addLayersControls");
+        if (blockStart < 0) return;
+        newBlock = newBlock.mid(blockStart);
+
+        if (!m_editor) { QApplication::clipboard()->setText(newBlock); dlg->close(); return; }
+
+        QString content = m_editor->toPlainText();
+        // Find existing addLayersControls block by brace counting
+        int addIdx = content.indexOf("addLayersControls");
+        if (addIdx >= 0) {
+            int braceIdx = content.indexOf('{', addIdx);
+            if (braceIdx >= 0) {
+                int depth = 1, pos = braceIdx + 1;
+                while (pos < content.size() && depth > 0) {
+                    if (content[pos] == '{') depth++;
+                    else if (content[pos] == '}') depth--;
+                    pos++;
+                }
+                // Replace old block with new
+                m_editor->selectAll();
+                QString updated = content.left(addIdx) + newBlock +
+                                  content.mid(pos);
+                m_editor->textCursor().insertText(updated);
+            }
+        } else {
+            // No existing block — append at end
+            QTextCursor c = m_editor->textCursor();
+            c.movePosition(QTextCursor::End);
+            c.insertText("\n" + newBlock);
+            m_editor->setTextCursor(c);
+        }
+        QApplication::clipboard()->setText(newBlock);
+        dlg->close();
+    });
+    dlg->show();
 }

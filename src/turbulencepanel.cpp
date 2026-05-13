@@ -15,6 +15,10 @@
 #include <QRegularExpression>
 #include <QMessageBox>
 #include <QMenu>
+#include <QDialog>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QTextEdit>
 
 TurbulencePanel::TurbulencePanel(QWidget *parent) : QWidget(parent) { setupUI(); }
 
@@ -413,4 +417,304 @@ void TurbulencePanel::onApplyConfig()
     QApplication::clipboard()->setText(snip);
     m_applyBtn->setText("✓ Applied!");
     QTimer::singleShot(1500, this, [this]() { m_applyBtn->setText("Apply to Editor"); });
+}
+
+// ── Turbulence Inlet Parameter Calculator ──
+void TurbulencePanel::onCalcTurb()
+{
+    auto *dlg = new QDialog(nullptr);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->setWindowTitle("Turbulence Inlet Calculator — 0/ field values");
+    dlg->resize(560, 680);
+    auto *l = new QVBoxLayout(dlg);
+
+    auto *form = new QFormLayout();
+
+    auto *U = new QDoubleSpinBox(); U->setRange(0.1, 500); U->setValue(10);
+    U->setDecimals(2); U->setSuffix(" m/s");
+    form->addRow("Freestream velocity U:", U);
+
+    auto *I_turb = new QDoubleSpinBox(); I_turb->setRange(0.1, 30); I_turb->setValue(5);
+    I_turb->setDecimals(1); I_turb->setSuffix(" % (1-5% low, 5-20% medium, >20% high)");
+    form->addRow("Turbulence intensity I:", I_turb);
+
+    auto *L_char = new QDoubleSpinBox(); L_char->setRange(0.001, 100); L_char->setValue(1);
+    L_char->setDecimals(3); L_char->setSuffix(" m (hydraulic diameter / chord)");
+    form->addRow("Characteristic length L:", L_char);
+
+    auto *nu = new QDoubleSpinBox(); nu->setRange(1e-7, 1e-3); nu->setValue(1.5e-5);
+    nu->setDecimals(8); nu->setSuffix(" m²/s");
+    nu->setSingleStep(1e-6);
+    form->addRow("Kinematic viscosity ν:", nu);
+
+    auto *result = new QTextEdit();
+    result->setReadOnly(true);
+    result->setFont(QFont("Consolas", 9));
+    result->setStyleSheet("QTextEdit { background:#F5FFF5; border:1px solid #C0E0C0; "
+                          "border-radius:3px; padding:8px; color:#333; }");
+    result->setMinimumHeight(200);
+    l->addLayout(form);
+    l->addWidget(result);
+
+    auto calc = [=]() -> QString {
+        double vel = U->value();
+        double I_val = I_turb->value() / 100.0;
+        double L = L_char->value();
+        double nuVal = nu->value();
+
+        // ── Common parameters ──
+        double uprime = vel * I_val;
+        double k = 1.5 * uprime * uprime;
+        double Lt = 0.07 * L;
+        static const double Cmu = 0.09;
+        static const double Cmu34 = 0.1643, Cmu14 = 0.5477;
+        double epsilon = Cmu34 * qPow(k, 1.5) / Lt;
+        double omega = qSqrt(k) / (Cmu14 * Lt);
+        double nut = Cmu * k * k / epsilon;
+
+        // ── SA ──
+        double nuTilda = 5.0 * nuVal;
+
+        // ── LES subgrid ──
+        double Cs = 0.168; // Smagorinsky constant
+        double Delta = qPow(L * L * L / 1e6, 1.0/3.0); // grid filter scale estimate
+        double nuSgs_smag = Cs * Cs * Delta * Delta * qSqrt(2.0) * vel / L;
+        double kSgs = nuSgs_smag * nuSgs_smag / (Cmu * Delta * Delta);
+
+        // ── RSTM ──
+        double R_ii = 2.0 / 3.0 * k;
+
+        // ── v2f ──
+        double v2_val = 2.0 / 3.0 * k; // isotropic assumption
+
+        return QString(
+            "Input: U=%1 m/s  I=%2%  L=%3 m  ν=%4  u'=%5 m/s  L_t=%6 m\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "╔══ kEpsilon Family ═════════════════════════════╗\n"
+            "║ Standard kEpsilon                              ║\n"
+            "║   k       = %7  m²/s²                          ║\n"
+            "║   epsilon = %8  m²/s³                          ║\n"
+            "║   nut     = %9  m²/s                           ║\n"
+            "║ RNG kEpsilon — same k, ε as standard            ║\n"
+            "║ realizableKE — same k, ε (Cμ = f(mean strain))  ║\n"
+            "╚═════════════════════════════════════════════════╝\n\n"
+            "╔══ kOmega Family ═══════════════════════════════╗\n"
+            "║ Standard kOmega / kOmegaSST / kOmega2006        ║\n"
+            "║   k     = %7  m²/s²                             ║\n"
+            "║   omega = %10  1/s                              ║\n"
+            "║   nut   = %9  m²/s                              ║\n"
+            "║ kOmegaSSTSAS — same k, ω as SST                 ║\n"
+            "╚═════════════════════════════════════════════════╝\n\n"
+            "╔══ SpalartAllmaras Family ══════════════════════╗\n"
+            "║ SA / SA-DES / SA-DDES                            ║\n"
+            "║   nuTilda ≈ ").arg(vel,0,'f',2).arg(I_val*100,0,'f',1).arg(L,0,'g',3).arg(nuVal,0,'g',4)
+         .arg(uprime,0,'g',4).arg(Lt,0,'g',4)
+         .arg(k,0,'g',4).arg(epsilon,0,'g',4).arg(nut,0,'g',4)
+         .arg(omega,0,'g',4) +
+            QString("%1  m²/s                              ║\n"
+            "║   nut = nuTilda × fv1                           ║\n"
+            "║   fv1 = χ³/(χ³ + Cv1³), χ = nuTilda/ν          ║\n"
+            "╚═════════════════════════════════════════════════╝\n\n"
+            "╔══ v2f (Durbin) ════════════════════════════════╗\n"
+            "║   k  = %2  m²/s²                                ║\n"
+            "║   ε  = %3  m²/s³                                ║\n"
+            "║   v2 = %4  m²/s²  (isotropic: 2/3·k)           ║\n"
+            "║   f  = 0  (equilibrium at inlet)                ║\n"
+            "║   nut = %5  m²/s                                ║\n"
+            "╚═════════════════════════════════════════════════╝\n\n"
+            "╔══ RSTM (LRR / SSG) ════════════════════════════╗\n"
+            "║ Reynolds stresses: R_ij = 2/3·k·δ_ij at inlet   ║\n"
+            "║   R_xx=R_yy=R_zz = %6  m²/s²                    ║\n"
+            "║   R_xy=R_xz=R_yz = 0                            ║\n"
+            "║   epsilon = %3  m²/s³                           ║\n"
+            "║   (use omega for SSG/LRR-ω variant)              ║\n"
+            "╚═════════════════════════════════════════════════╝\n\n"
+            "╔══ LES ═════════════════════════════════════════╗\n"
+            "║ Smagorinsky: nuSgs ≈ %7  m²/s                   ║\n"
+            "║ WALE: nuSgs similar order of magnitude           ║\n"
+            "║ kEqn: kSgs ≈ %8  m²/s² (estimate)              ║\n"
+            "║ dynamicKEqn / dynamicLagrangian: auto-calibrated ║\n"
+            "╚═════════════════════════════════════════════════╝\n\n"
+            "╔══ DES / DDES ══════════════════════════════════╗\n"
+            "║ Same inlet as parent RANS model:                 ║\n"
+            "║ SA-DES/DDES → use SA nuTilda above               ║\n"
+            "║ kOmegaSSTDES/DDES → use k/ω above                ║\n"
+            "║ CDES switching is internal (no extra BC needed)   ║\n"
+            "╚═════════════════════════════════════════════════╝\n\n"
+            "╔══ Transition Models ═══════════════════════════╗\n"
+            "║ kOmegaSSTLM / gammaReTheta:                      ║\n"
+            "║   k, ω — same as SST above                       ║\n"
+            "║   gammaInt  = 1  (fully turbulent inlet)         ║\n"
+            "║   ReThetat  = f(Tu, λ_θ) empirical correlation   ║\n"
+            "╚═════════════════════════════════════════════════╝\n\n"
+            "=== All 0/ field file templates ===\n"
+            "// 0/k\ninternalField   uniform %2;\n\n"
+            "// 0/epsilon\ninternalField   uniform %3;\n\n"
+            "// 0/omega\ninternalField   uniform %9;\n\n"
+            "// 0/nut\ninternalField   uniform %5;\n\n"
+            "// 0/nuTilda\ninternalField   uniform %1;\n\n"
+            "// 0/v2  (v2f only)\ninternalField   uniform %4;\n\n"
+            "// 0/R  symmTensor (RSTM only)\n"
+            "internalField   uniform (%6 0 0 %6 0 %6);\n\n"
+            "// 0/nuSgs  (LES only, if modelling SGS viscosity)\n"
+            "internalField   uniform %7;\n"
+            ).arg(nuTilda,0,'g',4).arg(k,0,'g',4).arg(epsilon,0,'g',4)
+             .arg(v2_val,0,'g',4).arg(nut,0,'g',4).arg(R_ii,0,'g',4)
+             .arg(nuSgs_smag,0,'g',4).arg(kSgs,0,'g',4).arg(omega,0,'g',4);
+    };
+
+    result->setPlainText(calc());
+    connect(U, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { result->setPlainText(calc()); });
+    connect(I_turb, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { result->setPlainText(calc()); });
+    connect(L_char, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { result->setPlainText(calc()); });
+    connect(nu, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=]() { result->setPlainText(calc()); });
+
+    // ── Theory button ──
+    auto *theoryBtn = new QPushButton("📖 Show Derivation & Physics...");
+    theoryBtn->setStyleSheet("QPushButton { text-align:left; border:1px solid #C0E0C0; "
+                             "background:#F5FFF5; color:#388E3C; font-size:10px; "
+                             "font-weight:bold; padding:3px 8px; border-radius:3px; }"
+                             "QPushButton:hover { background:#E0FFE0; }");
+    l->addWidget(theoryBtn);
+
+    connect(theoryBtn, &QPushButton::clicked, []() {
+        auto *td = new QDialog(nullptr);
+        td->setWindowTitle("Turbulence Inlet Parameters — Derivation & Physics");
+        td->resize(700, 550);
+        td->setMinimumSize(500, 400);
+        td->setAttribute(Qt::WA_DeleteOnClose);
+        auto *tl = new QVBoxLayout(td);
+        tl->setContentsMargins(0, 0, 0, 0);
+        auto *te = new QTextEdit();
+        te->setReadOnly(true);
+        te->setFont(QFont("Segoe UI", 10));
+        te->setStyleSheet("QTextEdit { background:#FFF; border:1px solid #E0E0E0; "
+                          "border-radius:4px; padding:12px; color:#333; }");
+        te->setHtml(
+            "<h2 style='color:#388E3C;'>Turbulence Inlet Parameters — y+ → 0/ fields</h2>"
+            "<p><i>Standard turbulence model boundary conditions for RANS CFD</i></p>"
+
+            "<h3 style='color:#555;'>Step 1 — Turbulence Intensity</h3>"
+            "<p><b>I = u' / U</b></p>"
+            "<p>Defined as the ratio of RMS velocity fluctuation to mean velocity. "
+            "Empirically estimated from flow type:</p>"
+            "<table border='1' cellpadding='3' cellspacing='0' style='border-collapse:collapse; font-size:9pt;'>"
+            "<tr style='background:#E0FFE0;'><th>Flow Type</th><th>I (%)</th></tr>"
+            "<tr><td>Low-turbulence wind tunnel</td><td>< 1%</td></tr>"
+            "<tr><td>External flow (clean inlet)</td><td>1–5%</td></tr>"
+            "<tr><td>Pipe flow (fully developed)</td><td>5–10%</td></tr>"
+            "<tr><td>Complex geometry / wakes</td><td>10–20%</td></tr>"
+            "<tr><td>High-intensity (combustion, cyclone)</td><td>> 20%</td></tr>"
+            "</table>"
+
+            "<h3 style='color:#555;'>Step 2 — Turbulent Kinetic Energy k</h3>"
+            "<p><b>k = 3/2 · (U·I)² = 3/2 · u'²</b></p>"
+            "<p><b>Derivation:</b> By definition, <i>k ≡ ½(u'² + v'² + w'²)</i>. "
+            "Assuming isotropic turbulence (<i>u'² ≈ v'² ≈ w'²</i>): "
+            "<i>k = ½ × 3u'² = 1.5 × u'² = 1.5 × (U·I)²</i>.</p>"
+            "<p>Units: m²/s². Typical values: 0.01 (low-turbulence) to 1.0 (high-turbulence).</p>"
+
+            "<h3 style='color:#555;'>Step 3 — Turbulence Length Scale L_t</h3>"
+            "<p><b>L_t = 0.07 · L_char</b></p>"
+            "<p>Empirical relation for internal flows (pipe/channel). "
+            "L_char is hydraulic diameter for internal flow, or chord length for external flow. "
+            "For external aerodynamics, use: L_t ≈ boundary layer thickness δ_99.</p>"
+            "<p>Alternative: L_t = C_mu^(3/4) · k^(3/2) / epsilon (if epsilon is known).</p>"
+
+            "<h3 style='color:#555;'>Step 4 — Dissipation Rate ε (kEpsilon)</h3>"
+            "<p><b>ε = C_μ^(3/4) · k^(3/2) / L_t</b></p>"
+            "<p>From Kolmogorov's energy cascade: the large-eddy turnover time is k/ε. "
+            "The length scale L_t relates k and ε: L_t ∝ k^(3/2)/ε. "
+            "The constant C_μ^(3/4) ≈ 0.164 is fixed by the standard k-ε model calibration.</p>"
+            "<p>C_μ = 0.09 was determined by Launder & Spalding (1974) to satisfy "
+            "the log-law in equilibrium boundary layers: u_τ² = C_μ^(1/2) · k.</p>"
+            "<p>Units: m²/s³.</p>"
+
+            "<h3 style='color:#555;'>Step 5 — Specific Dissipation ω (kOmega/kOmegaSST)</h3>"
+            "<p><b>ω = √k / (C_μ^(1/4) · L_t)</b></p>"
+            "<p>By definition: ω ≡ ε / (C_μ · k). Substituting ε from Step 4: "
+            "ω = C_μ^(3/4)·k^(3/2)/L_t / (C_μ·k) = k^(1/2) / (C_μ^(1/4)·L_t).</p>"
+            "<p>Physically, ω represents the rate of dissipation per unit turbulent kinetic energy. "
+            "It is the inverse of the turbulent time scale. Units: 1/s.</p>"
+
+            "<h3 style='color:#555;'>Step 6 — Eddy Viscosity ν_t</h3>"
+            "<p><b>ν_t = C_μ · k² / ε</b></p>"
+            "<p>From dimensional analysis: ν_t ∝ k²/ε (Prandtl-Kolmogorov relation). "
+            "C_μ ≈ 0.09 ensures consistency with the log-law: ν_t = u_τ·κ·y in the log region.</p>"
+            "<p>Units: m²/s (same as kinematic viscosity). Typical ν_t/ν = 10–1000.</p>"
+
+            "<h3 style='color:#555;'>Step 7 — Spalart-Allmaras ν̃</h3>"
+            "<p><b>ν̃ ≈ 3~5 × ν</b></p>"
+            "<p>SA model uses a transport equation for the modified eddy viscosity ν̃. "
+            "For fully turbulent inlet: ν̃ = 3~5 × ν_laminar is a common engineering estimate "
+            "(Spalart & Allmaras, 1992). More precise: ν̃ = √(1.5) · U · I · L_t.</p>"
+
+            "<hr>"
+            "<h3 style='color:#555;'>Summary Table</h3>"
+            "<table border='1' cellpadding='4' cellspacing='0' style='border-collapse:collapse; font-size:9pt;'>"
+            "<tr style='background:#E0FFE0;'>"
+            "<th>Field</th><th>Model</th><th>Formula</th><th>Dependency</th></tr>"
+            "<tr><td>k</td><td>All RANS</td><td>3/2·(U·I)²</td><td>U, I</td></tr>"
+            "<tr><td>ε</td><td>kEpsilon</td><td>C_μ^(3/4)·k^(3/2)/L_t</td><td>k, L_t, C_μ</td></tr>"
+            "<tr><td>ω</td><td>kOmega/SST</td><td>√k/(C_μ^(1/4)·L_t)</td><td>k, L_t, C_μ</td></tr>"
+            "<tr><td>ν_t</td><td>kEpsilon/kOmega</td><td>C_μ·k²/ε</td><td>k, ε, C_μ</td></tr>"
+            "<tr><td>ν̃</td><td>SA</td><td>3~5·ν</td><td>ν</td></tr>"
+            "</table>"
+
+            "<hr>"
+            "<p style='color:#888; font-size:9pt;'><b>References:</b><br>"
+            "Launder, B.E. & Spalding, D.B. (1974). <i>Computer Methods in Applied Mechanics "
+            "and Engineering</i>, 3(2), 269–289.<br>"
+            "Wilcox, D.C. (2006). <i>Turbulence Modeling for CFD</i>, 3rd ed., DCW Industries.<br>"
+            "Spalart, P.R. & Allmaras, S.R. (1992). AIAA Paper 92-0439.<br>"
+            "Menter, F.R. (1994). <i>AIAA Journal</i>, 32(8), 1598–1605.</p>"
+        );
+        tl->addWidget(te, 1);
+        auto *closeBtn = new QPushButton("Close");
+        closeBtn->setStyleSheet("QPushButton { padding:6px 24px; }");
+        tl->addWidget(closeBtn);
+        connect(closeBtn, &QPushButton::clicked, td, &QDialog::accept);
+        td->show();
+    });
+
+    auto *btns = new QHBoxLayout();
+    btns->addStretch();
+    auto *close = new QPushButton("Close");
+    auto *insertK = new QPushButton("Insert k");
+    auto *insertEps = new QPushButton("Insert epsilon");
+    auto *insertOmega = new QPushButton("Insert omega");
+    insertK->setStyleSheet("QPushButton { background:#388E3C; color:white; padding:4px 10px; "
+                           "border:none; border-radius:3px; font-weight:bold; font-size:10px; }");
+    insertEps->setStyleSheet(insertK->styleSheet());
+    insertOmega->setStyleSheet(insertK->styleSheet());
+    btns->addWidget(insertK); btns->addWidget(insertEps);
+    btns->addWidget(insertOmega); btns->addWidget(close);
+    l->addLayout(btns);
+
+    connect(close, &QPushButton::clicked, dlg, &QDialog::close);
+    connect(insertK, &QPushButton::clicked, dlg, [this, result, dlg]() {
+        QString txt = result->toPlainText();
+        int idx = txt.indexOf("internalField   uniform");
+        if (m_editor && idx >= 0) {
+            m_editor->textCursor().insertText(txt.mid(idx, txt.indexOf('\n', idx + 30) - idx + 1));
+        }
+    });
+    connect(insertEps, &QPushButton::clicked, dlg, [this, result, dlg]() {
+        QString txt = result->toPlainText();
+        int idx = txt.indexOf("// 0/epsilon");
+        if (m_editor && idx >= 0) {
+            int s = txt.indexOf("uniform", idx);
+            m_editor->textCursor().insertText(txt.mid(s, txt.indexOf('\n', s) - s + 1));
+        }
+    });
+    connect(insertOmega, &QPushButton::clicked, dlg, [this, result, dlg]() {
+        QString txt = result->toPlainText();
+        int idx = txt.indexOf("// 0/omega");
+        if (m_editor && idx >= 0) {
+            int s = txt.indexOf("uniform", idx);
+            m_editor->textCursor().insertText(txt.mid(s, txt.indexOf('\n', s) - s + 1));
+        }
+    });
+
+    dlg->show();
 }

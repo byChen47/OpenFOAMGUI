@@ -24,6 +24,7 @@ public:
     void loadTurbulenceFile(const QString &filePath, const QString &content);
     void setEditor(CodeEditor *editor) { m_editor = editor; }
     void clear();
+    void onCalcTurb(); // public for toolbar access
 
 signals:
     void insertSnippet(const QString &snippet);
